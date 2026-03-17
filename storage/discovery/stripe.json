@@ -1,0 +1,10 @@
+{
+  "vendor": "stripe",
+  "api": "Stripe",
+  "discovered_at": "2026-03-17T13:17:38.745986",
+  "sources": {
+    "docs": "https://docs.stripe.com/apis",
+    "openapi": "https://github.com/stripe/openapi",
+    "changelog": "https://docs.stripe.com/changelog/clover/2025-10-29/payment-records-updates"
+  }
+}

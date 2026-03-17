@@ -1,0 +1,7 @@
+{
+  "queries": {
+    "docs": "{vendor} API documentation",
+    "openapi": "{vendor} OpenAPI specification GitHub",
+    "changelog": "{vendor} API changelog"
+  }
+}

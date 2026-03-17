@@ -1,0 +1,10 @@
+{
+  "vendor": "twilio",
+  "api": "Twilio",
+  "discovered_at": "2026-03-17T13:17:44.421031",
+  "sources": {
+    "docs": "https://www.twilio.com/docs",
+    "openapi": "https://github.com/twilio/twilio-oai",
+    "changelog": "https://www.twilio.com/docs/voice/twiml/changelog"
+  }
+}
