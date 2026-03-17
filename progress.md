@@ -340,7 +340,7 @@ Example cases:
 | Vendor | Repository | Actual Spec Location |
 |------|------|------|
 | Stripe | stripe/openapi | `openapi/spec3.yaml` |
-| Twilio | stripe/openapi | `openapi/spec3.yaml` |
+| Twilio | twilio/openapi | `openapi/spec3.yaml` |
 | OpenAI | openai/openai-openapi | `openapi.yaml` on `main` branch |
 
 Because the resolver assumed a single filename and branch (`master`), it generated invalid URLs which resulted in failed downloads.

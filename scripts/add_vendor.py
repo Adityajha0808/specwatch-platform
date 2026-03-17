@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-CONFIG_PATH = Path("specwatch/config/vendors.json")
+CONFIG_PATH = Path("specwatch/config/json/vendors.json")
 
 
 def load_config():

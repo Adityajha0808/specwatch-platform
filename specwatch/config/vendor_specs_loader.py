@@ -7,7 +7,7 @@ logger = get_logger(__name__)
 
 
 BASE_PATH = os.path.dirname(__file__)
-VENDOR_SPEC_FILE = os.path.join(BASE_PATH, "vendor_specs.json")
+VENDOR_SPEC_FILE = os.path.join(BASE_PATH, "json/vendor_specs.json")
 
 # Load specific vendor specs from configurations
 def load_vendor_specs():

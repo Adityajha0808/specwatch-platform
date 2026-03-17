@@ -4,9 +4,9 @@ from specwatch.config.config_validator import validate_configs
 
 BASE_PATH = Path("specwatch/config")
 
-VENDORS_FILE = BASE_PATH / "vendors.json"
-REGISTRY_FILE = BASE_PATH / "vendor_registry.json"
-QUERIES_FILE = BASE_PATH / "discovery_queries.json"
+VENDORS_FILE = BASE_PATH / "json/vendors.json"
+REGISTRY_FILE = BASE_PATH / "json/vendor_registry.json"
+QUERIES_FILE = BASE_PATH / "json/discovery_queries.json"
 
 
 def load_all_configs():

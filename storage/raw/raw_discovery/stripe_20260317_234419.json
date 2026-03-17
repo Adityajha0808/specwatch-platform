@@ -1,0 +1,10 @@
+{
+  "vendor": "stripe",
+  "api": "Stripe",
+  "discovered_at": "2026-03-17T23:44:10.669628",
+  "sources": {
+    "docs": "https://docs.stripe.com/apis",
+    "openapi": "https://github.com/stripe/openapi",
+    "changelog": "https://docs.stripe.com/api/versioning"
+  }
+}
