@@ -1,5 +1,12 @@
 {
   "vendors": {
+    "openai": {
+      "trusted_domains": [
+        "openai.com",
+        "platform.openai.com",
+        "github.com"
+      ]
+    },
     "stripe": {
       "trusted_domains": [
         "stripe.com",
@@ -11,13 +18,6 @@
       "trusted_domains": [
         "twilio.com",
         "docs.twilio.com",
-        "github.com"
-      ]
-    },
-    "openai": {
-      "trusted_domains": [
-        "openai.com",
-        "platform.openai.com",
         "github.com"
       ]
     }

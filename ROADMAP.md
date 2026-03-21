@@ -72,7 +72,7 @@ why LLM classification
 
 why async pipeline
 
-👉 If this isn’t done, coding = wasted effort.
+If this isn’t done, coding = wasted effort.
 
 
 
@@ -259,13 +259,13 @@ Run end-to-end for Stripe/Twilio/OpenAI.
 
 After 7 Days You Have:
 
-✅ Live data ingestion
-✅ Versioned storage
-✅ Change detection
-✅ Semantic classification
-✅ Automated alerts
-✅ Real pipeline
-✅ Real architecture
+Live data ingestion
+Versioned storage
+Change detection
+Semantic classification
+Automated alerts
+Real pipeline
+Real architecture
 
 This is already interview-grade.
 
@@ -320,13 +320,13 @@ multi-tenant model
 
 How NOT to Work (Important)
 
-❌ UI first
-❌ chatbot interface
-❌ prompt engineering
-❌ dashboards early
-❌ “AI demo”
-❌ agent loops
-❌ overengineering infra
+UI first
+chatbot interface
+prompt engineering
+dashboards early
+“AI demo”
+agent loops
+overengineering infra
 
 How to Think While Building
 

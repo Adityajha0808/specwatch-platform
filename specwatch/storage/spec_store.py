@@ -29,7 +29,10 @@ def generate_filename(vendor, extension):
 
 def calculate_hash(content):
 
-    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+    if isinstance(content, str):
+        content = content.encode('utf-8')
+
+    return hashlib.sha256(content).hexdigest()
 
 
 def get_latest_spec_file(vendor):

@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SpecWatch Canonical API Schema",
+  "type": "object",
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "vendor": {"type": "string"},
+        "normalized_at": {"type": "string", "format": "date-time"},
+        "source_file": {"type": "string"},
+        "source_hash": {"type": "string"},
+        "schema_version": {"type": "string"},
+        "openapi_version": {"type": "string"}
+      },
+      "required": ["vendor", "normalized_at", "source_file", "schema_version"]
+    },
+    "base_url": {"type": "string"},
+    "endpoints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique endpoint identifier: {METHOD}:{path} (e.g., 'POST:/v1/customers')"
+          },
+          "path": {
+            "type": "string",
+            "description": "API endpoint path (e.g., '/v1/customers')"
+          },
+          "method": {
+            "type": "string",
+            "enum": ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]
+          },
+          "summary": {
+            "type": "string",
+            "description": "Brief description of the endpoint"
+          },
+          "deprecated": {
+            "type": "boolean",
+            "description": "Whether this endpoint is deprecated"
+          },
+          "parameters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {"type": "string"},
+                "location": {
+                  "type": "string",
+                  "enum": ["path", "query", "header", "body"]
+                },
+                "required": {"type": "boolean"},
+                "type": {"type": "string"},
+                "description": {"type": "string"}
+              },
+              "required": ["name", "location", "required", "type"]
+            }
+          },
+          "request_body_required": {
+            "type": "boolean",
+            "description": "Whether request body is required"
+          },
+          "auth_required": {
+            "type": "boolean",
+            "description": "Whether authentication is required"
+          },
+          "responses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of HTTP status codes (e.g., ['200', '400', '401'])"
+          }
+        },
+        "required": ["id", "path", "method", "parameters"]
+      }
+    }
+  },
+  "required": ["metadata", "endpoints"]
+}

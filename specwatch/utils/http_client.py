@@ -30,19 +30,47 @@ def url_exists(url):
 
             if response.status_code == 200:
                 return True
-            
-            logger.warning(
-                f"HEAD {response.status_code} for {url}"
-            )
+
+            # If HEAD is unreliable then fallback to GET for certain cases
+            if response.status_code in [403, 405, 500]:
+                logger.warning(f"HEAD {response.status_code}, falling back to GET: {url}")
+
+                get_resp = requests.get(
+                    url,
+                    headers=HEADERS,
+                    timeout=DEFAULT_TIMEOUT,
+                    stream=True
+                )
+
+                if get_resp.status_code == 200:
+                    return True
 
             if response.status_code == 404:
                 return False
 
-        except Exception as e:
+            logger.warning(f"HEAD {response.status_code} for {url}")
 
+        except Exception as e:
             logger.warning(
-                f"HEAD request failed ({attempt+1}/{MAX_RETRIES}) for {url}: {e}"
+                f"HEAD failed ({attempt+1}/{MAX_RETRIES}) for {url}: {e}"
             )
+
+            # Fallback to GET even on exception
+            try:
+                get_resp = requests.get(
+                    url,
+                    headers=HEADERS,
+                    timeout=DEFAULT_TIMEOUT,
+                    stream=True
+                )
+
+                if get_resp.status_code == 200:
+                    return True
+
+            except Exception as get_err:
+                logger.warning(
+                    f"GET fallback failed ({attempt+1}/{MAX_RETRIES}) for {url}: {get_err}"
+                )
 
         time.sleep(RETRY_DELAY)
 
@@ -65,9 +93,16 @@ def http_get(url):
             if response.status_code == 200:
                 return response
 
-            logger.warning(
-                f"HTTP {response.status_code} for {url}"
-            )
+            # Retry only for transient errors
+            if response.status_code in [429, 500, 502, 503, 504]:
+                logger.warning(
+                    f"Retryable HTTP {response.status_code} for {url}"
+                )
+            else:
+                logger.warning(
+                    f"HTTP {response.status_code} for {url}"
+                )
+                return None
 
         except Exception as e:
 
@@ -77,6 +112,5 @@ def http_get(url):
 
         time.sleep(RETRY_DELAY)
 
-    logger.error(f"Failed to fetch URL: {url}")
-
+    logger.error(f"Failed to fetch URL after retries: {url}")
     return None

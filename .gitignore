@@ -86,6 +86,13 @@ storage/discovery/.DS_Store
 storage/raw/.DS_Store
 storage/raw/raw_discovery/.DS_Store
 storage/raw/raw_specs/.DS_Store
+storage/normalized/openai/.DS_Store
+storage/normalized/stripe/.DS_Store
+storage/normalized/twilio/.DS_Store
+storage/normalized/.DS_Store
+
+# SpecWatch generated data
+storage/
 
 # env file
 .env
