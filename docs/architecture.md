@@ -71,8 +71,8 @@ specwatch-platform/
 │                   VERSION STORAGE (S3/GCS)                       │
 │  api_name/                                                       │
 │    ├─ snapshots/                                                 │
-│    │   ├─ 2024-01-15T10:00:00Z.json                              │
-│    │   ├─ 2024-01-16T10:00:00Z.json                              │
+│    │   ├─ 2026-01-15T10:00:00Z.json                              │
+│    │   ├─ 2026-01-16T10:00:00Z.json                              │
 │    │   └─ ...                                                    │
 │    └─ metadata.json (discovery config, last fetch, etc)          │
 └────────────────┬────────────────────────────────────────────────┘
@@ -152,7 +152,7 @@ specwatch-platform/
     "changelog": "https://stripe.com/docs/upgrades",
     "sdk_repo": "https://github.com/stripe/stripe-python"
   },
-  "discovered_at": "2024-01-15T10:00:00Z",
+  "discovered_at": "2026-01-15T10:00:00Z",
   "tavily_confidence": 0.95
 }
 ```
@@ -174,7 +174,7 @@ specwatch-platform/
 
 **Output**: Raw versioned files in object storage
 ```
-s3://api-snapshots/stripe/raw/2024-01-15T10:00:00Z/
+s3://api-snapshots/stripe/raw/2026-01-15T10:00:00Z/
   ├─ openapi.json
   ├─ docs.html
   ├─ changelog.md
@@ -197,7 +197,7 @@ s3://api-snapshots/stripe/raw/2024-01-15T10:00:00Z/
 **Output**: `normalized.json`
 ```json
 {
-  "version_timestamp": "2024-01-15T10:00:00Z",
+  "version_timestamp": "2026-01-15T10:00:00Z",
   "endpoints": [
     {
       "path": "/v1/customers",
@@ -263,8 +263,8 @@ s3://api-snapshots/stripe/raw/2024-01-15T10:00:00Z/
 **Output**: `diff.json`
 ```json
 {
-  "from_version": "2024-01-15T10:00:00Z",
-  "to_version": "2024-01-16T10:00:00Z",
+  "from_version": "2026-01-15T10:00:00Z",
+  "to_version": "2026-01-16T10:00:00Z",
   "changes": [
     {
       "type": "parameter_removed",
@@ -367,7 +367,7 @@ For each change, provide:
 API: Stripe
 Change: Required parameter 'email' removed from POST /v1/customers
 Severity: High (confidence: 0.92)
-Detected: 2024-01-16 10:05 UTC
+Detected: 2026-01-16 10:05 UTC
 
 Action Required:
 - Update request payloads to remove 'email' parameter
@@ -577,7 +577,7 @@ mypy>=1.8
 
 **Day 14: End-to-End Test**
 - Create two synthetic Stripe snapshots with intentional breaking change
-- Run: `python pipelines/main_pipeline.py --api stripe --compare 2024-01-01 2024-01-02`
+- Run: `python pipelines/main_pipeline.py --api stripe --compare 2026-01-01 2026-01-02`
 - Verify Slack alert received
 
 ### Week 3-4: Automation + Second API (Days 15-28)

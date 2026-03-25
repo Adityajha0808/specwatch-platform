@@ -181,6 +181,8 @@ openai.json
 
 * The pipeline reads previously discovered vendor sources and retrieves the API specification files directly from those locations.
 
+* When Ingestion re-runs, it computes the hash (SHA256 hashing) of new raw spec file, and compares against the hash of already stored spec file. If it matches, it skips saving the new raw spec file while keeping the old one, to avoid de-duplication. Only when hash is different, the new raw spec file is stored.
+
 ### HTTP Client Utility
 
 - A reusable HTTP client utility was implemented to standardize external requests across the system.
@@ -520,6 +522,8 @@ The normalizer generates a SHA-256 hash (truncated to 16 characters) of the raw 
 - **Layer 1 (Ingestion)**: Prevents duplicate raw spec files when API content is unchanged
 - **Layer 2 (Normalization)**: Prevents duplicate normalized snapshots even when normalization is run manually or retried
 
+The hash identification for a normalized snapshot is saved inside its metadata.
+
 ## Normalized Storage Strategy
 
 Normalized specifications are stored using a versioned snapshot approach with symlink references.
@@ -535,11 +539,11 @@ Directory structure per vendor:
 ```
 storage/normalized/stripe/
 ├── snapshots/
-│   ├── 2024-01-10T09:00:00Z.json
-│   ├── 2024-01-12T09:00:00Z.json
-│   └── 2024-01-15T09:00:00Z.json
-├── baseline.json -> snapshots/2024-01-10T09:00:00Z.json
-└── latest.json   -> snapshots/2024-01-15T09:00:00Z.json
+│   ├── 2026-01-10T09:00:00Z.json
+│   ├── 2026-01-12T09:00:00Z.json
+│   └── 2026-01-15T09:00:00Z.json
+├── baseline.json -> snapshots/2026-01-10T09:00:00Z.json
+└── latest.json   -> snapshots/2026-01-15T09:00:00Z.json
 ```
 
 **Snapshots directory**
@@ -646,9 +650,9 @@ Example log output:
 [INFO] normalization_pipeline_started vendors=['stripe', 'twilio', 'openai']
 [DEBUG] normalize_vendor_started vendor=stripe
 [DEBUG] searching_raw_specs vendor=stripe raw_dir=storage/raw/raw_specs
-[INFO] found_raw_spec vendor=stripe spec_file=stripe_openapi_2024-01-15.yaml
+[INFO] found_raw_spec vendor=stripe spec_file=stripe_openapi_2026-01-15.yaml
 [DEBUG] step_1_parsing vendor=stripe
-[DEBUG] parsing_as_yaml filepath=storage/raw/raw_specs/stripe_openapi_2024-01-15.yaml
+[DEBUG] parsing_as_yaml filepath=storage/raw/raw_specs/stripe_openapi_2026-01-15.yaml
 [INFO] yaml_parsed_successfully top_level_keys=['openapi', 'info', 'servers', 'paths']
 [DEBUG] step_2_hashing vendor=stripe
 [DEBUG] step_3_base_url vendor=stripe
@@ -656,7 +660,7 @@ Example log output:
 [DEBUG] step_4_endpoints vendor=stripe
 [INFO] endpoints_extraction_complete total_endpoints=450
 [INFO] normalization_complete vendor=stripe endpoint_count=450
-[INFO] snapshot_stored vendor=stripe snapshot_path=storage/normalized/stripe/snapshots/2024-01-15.json
+[INFO] snapshot_stored vendor=stripe snapshot_path=storage/normalized/stripe/snapshots/2026-01-15.json
 [INFO] vendor_normalized_success vendor=stripe status=success
 ```
 
@@ -670,8 +674,8 @@ A normalized Stripe specification contains metadata and extracted endpoint detai
 {
   "metadata": {
     "vendor": "stripe",
-    "normalized_at": "2024-01-15T10:00:00Z",
-    "source_file": "stripe_openapi_2024-01-15.yaml",
+    "normalized_at": "2026-01-15T10:00:00Z",
+    "source_file": "stripe_openapi_2026-01-15.yaml",
     "source_hash": "a1b2c3d4e5f6g7h8",
     "schema_version": "1.0",
     "openapi_version": "3.0.0"
@@ -716,7 +720,7 @@ python scripts/list_versions.py stripe
 **Update baseline to specific snapshot:**
 
 ```bash
-python scripts/update_baseline.py stripe 2024-01-20T09:00:00Z
+python scripts/update_baseline.py stripe 2026-01-20T09:00:00Z
 ```
 
 These utilities help validate that normalization is working correctly and provide quick insights into stored snapshots.

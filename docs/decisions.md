@@ -159,7 +159,7 @@ Compute diffs from raw JSON snapshots instead of relying on API providers' seman
 
 ### Rationale
 **Problem with Semantic Versioning**:
-- **Inconsistent adherence**: Not all APIs follow semver strictly (e.g., Stripe uses dated versions like "2024-01-15")
+- **Inconsistent adherence**: Not all APIs follow semver strictly (e.g., Stripe uses dated versions like "2026-01-15")
 - **Silent breaking changes**: Providers may increment patch version despite breaking changes
 - **Undocumented changes**: Version bump without changelog explanation
 - **Deprecation lag**: Features marked deprecated but still work for months
@@ -470,7 +470,7 @@ logger.error("classification_failed", diff=diff, error=str(e), correlation_id=re
   "api": "stripe",
   "url": "https://...",
   "correlation_id": "abc-123",
-  "timestamp": "2024-01-15T10:00:00Z",
+  "timestamp": "2026-01-15T10:00:00Z",
   "level": "info"
 }
 ```
@@ -497,8 +497,8 @@ logger.error("classification_failed", diff=diff, error=str(e), correlation_id=re
 # tests/test_end_to_end.py
 def test_stripe_breaking_change_detection():
     # Given: Two snapshots with known breaking change
-    old = load_fixture("stripe_2024_01_01.json")
-    new = load_fixture("stripe_2024_01_02.json")
+    old = load_fixture("stripe_2026_01_01.json")
+    new = load_fixture("stripe_2026_01_02.json")
     
     # When: Run diff + classification
     diff = compute_diff(old, new)

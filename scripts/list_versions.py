@@ -1,9 +1,12 @@
+#!/usr/bin/env python
+""" List all normalized versions for a vendor """
+
 import json
 from pathlib import Path
 from datetime import datetime
 import sys
 
-# List all normalized versions for a vendor
+
 def list_versions(vendor: str):
 
     snapshots_dir = Path(f"storage/normalized/{vendor}")

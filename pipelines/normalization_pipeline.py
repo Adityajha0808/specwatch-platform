@@ -8,6 +8,7 @@ Returns:
     True if all normalizations successful, False otherwise.
 """
 
+import os
 import sys
 import argparse
 from pathlib import Path
@@ -155,7 +156,6 @@ if __name__ == "__main__":
     
     # Enable debug logging if requested
     if args.debug:
-        import os
         os.environ['LOG_LEVEL'] = 'DEBUG'
     
     logger.info("Normalization pipeline cli started")
