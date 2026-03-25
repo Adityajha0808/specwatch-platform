@@ -533,7 +533,7 @@ def create_openai_snapshots():
     with open(vendor_dir / "latest.json", "w") as f:
         json.dump(latest, f, indent=2)
     
-    print(f"✅ Created OpenAI snapshots in {vendor_dir}/")
+    print(f" Created OpenAI snapshots in {vendor_dir}/")
     print(f"   Changes: base_url changed, 1 deprecated, 1 auth changed, 1 responses changed")
 
 

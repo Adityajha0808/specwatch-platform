@@ -50,7 +50,7 @@ while True:
 
 **Implementation**:
 ```python
-# specwatch/storage/version_store.py
+# specwatch/store/version_store.py
 class VersionStore:
     def store_snapshot(self, api_name: str, data: dict):
         if os.getenv("STORAGE_BACKEND") == "s3":

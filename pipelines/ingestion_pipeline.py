@@ -3,7 +3,7 @@ import json
 
 from specwatch.ingestion.openapi_resolver import OpenAPIResolver
 from specwatch.ingestion.spec_fetcher import fetch_spec
-from specwatch.storage.spec_store import store_spec
+from specwatch.store.spec_store import store_spec
 from specwatch.utils.logger import get_logger
 
 

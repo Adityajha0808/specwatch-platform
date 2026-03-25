@@ -144,7 +144,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--vendors",
         nargs="+",
-        help="Specific vendors to normalize (e.g., stripe twilio). If not specified, normalizes all."
+        help="Specific vendors to normalize (e.g., stripe). If not specified, normalizes all."
     )
     parser.add_argument(
         "--debug",

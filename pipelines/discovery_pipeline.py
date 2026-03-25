@@ -10,8 +10,8 @@ from specwatch.config.config_loader import (
 )
 
 from specwatch.config.config_validator import validate_configs
-from specwatch.storage.raw_discovery_store import store_raw
-from specwatch.storage.discovery_store import store_latest_discovery
+from specwatch.store.raw_discovery_store import store_raw
+from specwatch.store.discovery_store import store_latest_discovery
 from specwatch.utils.logger import get_logger
 from datetime import datetime
 

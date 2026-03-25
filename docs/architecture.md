@@ -596,7 +596,7 @@ mypy>=1.8
 - Update normalizer to support multiple source types
 
 **Day 21-23: Storage Abstraction**
-- Implement `specwatch/storage/version_store.py`:
+- Implement `specwatch/store/version_store.py`:
   - `store_snapshot(api_name, data) -> None`
   - `get_latest(api_name) -> Snapshot`
   - Abstract FS vs S3 (use environment variable to switch)

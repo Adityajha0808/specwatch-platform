@@ -6,6 +6,7 @@ from pipelines.discovery_pipeline import run_discovery
 from pipelines.ingestion_pipeline import run_ingestion
 from pipelines.normalization_pipeline import run_normalization
 from pipelines.diff_pipeline import run_diff
+from pipelines.classification_pipeline import run_classification
 
 logger = get_logger(__name__)
 
@@ -29,6 +30,10 @@ def run_full_pipeline():
     # Step 4: Diff Engine
     logger.info("Running diff pipeline")
     run_diff()
+
+    # Step 5: Classification
+    logger.info("Running classification pipeline")
+    run_classification()
     
     logger.info("Specwatch pipeline complete")
     return True

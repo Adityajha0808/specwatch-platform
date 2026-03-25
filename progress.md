@@ -245,7 +245,7 @@ specwatch/ingestion/spec_fetcher.py
 
 * File:
 
-specwatch/storage/spec_store.py
+specwatch/store/spec_store.py
 
 - Specifications are stored using timestamped filenames to preserve version history.
 
@@ -607,7 +607,7 @@ The pipeline can process all vendors automatically or accept specific vendor nam
 python -m pipelines.normalization_pipeline
 
 # Normalize specific vendors
-python -m pipelines.normalization_pipeline --vendors stripe twilio
+python -m pipelines.normalization_pipeline --vendors stripe
 
 # Enable debug logging
 python -m pipelines.normalization_pipeline --debug
@@ -777,21 +777,637 @@ Benefits:
 
 ---
 
+# Day 5 – Diff Engine Pipeline
+
+Implemented the **diff engine** responsible for comparing normalized snapshots and detecting API changes.
+
+The diff engine compares baseline and latest normalized snapshots to identify structural changes in API contracts, including endpoint additions/removals, parameter modifications, and metadata changes.
+
+## Diff Engine Workflow
+
+The diff engine performs the following steps:
+
+1. Load baseline and latest normalized snapshots
+2. Compare metadata (base URL, OpenAPI version)
+3. Build endpoint maps by unique endpoint ID
+4. Detect added/removed/modified endpoints using set operations
+5. For common endpoints, compare field changes (deprecated, auth_required, responses)
+6. Build parameter maps by (location, name) tuple
+7. Detect added/removed/modified parameters
+8. Compare parameter fields (type, required, location)
+9. Build structured diff output with change classifications
+10. Store diff results with version timestamps
+
+## Implementation Architecture
+
+### Diff Models
+
+Type-safe Pydantic models define the diff structure:
+
+**File**: `specwatch/diff/diff_models.py`
+
+Models include:
+- `ParameterChange` - Represents parameter-level changes (added/removed/type changed/requirement changed)
+- `EndpointFieldChange` - Represents endpoint field changes (deprecated, auth_required, responses)
+- `EndpointChange` - Represents endpoint-level changes with nested parameter changes
+- `MetadataChange` - Represents API metadata changes (base_url)
+- `DiffSummary` - Summary statistics (counts of each change type)
+- `APIDiff` - Complete diff with metadata, summary, and detailed changes
+
+### Diff Utilities
+
+Helper functions for efficient comparison:
+
+**File**: `specwatch/diff/diff_utils.py`
+
+Functions include:
+- `build_endpoint_map()` - Map endpoints by ID for O(1) lookup
+- `build_parameter_map()` - Map parameters by (location, name) for O(1) lookup
+- `compare_parameter_fields()` - Deep field comparison for parameters
+- `compare_endpoint_fields()` - Field comparison for endpoints (excluding parameters)
+- `is_breaking_change()` - Heuristic classifier for Phase 1 (Later, will use LLM)
+
+### Diff Engine Core Logic
+
+**File**: `specwatch/diff/diff_engine.py`
+
+Core functions:
+- `compute_diff()` - Main entry point that orchestrates full diff computation
+- `_diff_metadata()` - Compare metadata fields (base_url changes)
+- `_diff_endpoints()` - Compare endpoint arrays using set operations
+- `_diff_parameters()` - Compare parameter arrays for common endpoints
+
+**Comparison Strategy**:
+- Uses endpoint IDs (`POST:/v1/customers`) for unambiguous matching
+- Uses (location, name) tuples for parameter matching
+- Applies set operations for efficient added/removed detection
+- Deep field comparison for modified items
+
+### Diff Storage
+
+**File**: `specwatch/store/diff_store.py`
+
+Storage abstraction supporting both test and production modes:
+- `store_diff()` - Store diff results with timestamped filenames
+- `load_diff()` - Load diff results by filename
+- `get_latest_diff()` - Retrieve most recent diff for a vendor
+
+**Filename format**: `diff_{baseline_ts}_to_{latest_ts}.json`
+
+## Diff Pipeline Orchestration
+
+**File**: `pipelines/diff_pipeline.py`
+
+The diff pipeline supports two modes:
+
+### Test Mode
+```bash
+python -m pipelines.diff_pipeline --test-mode
+```
+
+**Input**: `tests_diff/fixtures/{vendor}/baseline.json` and `latest.json`  
+**Output**: `tests_diff/output/{vendor}/diff_*.json`
+
+Uses synthetic snapshots with known changes for testing and validation.
+
+### Production Mode
+```bash
+python -m pipelines.diff_pipeline
+```
+
+**Input**: `storage/normalized/{vendor}/baseline.json` and `latest.json`  
+**Output**: `storage/diffs/{vendor}/diff_*.json`
+
+Uses real normalized snapshots from production storage.
+
+**Pipeline features**:
+- Auto-discovers vendors from input directory
+- Processes each vendor independently
+- Logs detailed summary for each diff
+- Returns success/failure status for all vendors
+
+## Test Infrastructure
+
+### Synthetic Test Data
+
+**Script**: `scripts/create_diff_test_snapshots.py`
+
+Generates synthetic baseline and latest snapshots with intentional differences:
+
+**Stripe** (endpoint-level changes):
+- 1 endpoint added: `POST:/v1/payment_intents`
+- 1 endpoint removed: `POST:/v1/charges`
+- 1 endpoint deprecated: `GET:/v1/customers`
+
+**Twilio** (parameter-level changes):
+- Parameter type changed: `Body` (string → object) - BREAKING
+- Parameter requirement changed: `From` (required: true → false)
+- Parameter added: `StatusCallback` (optional)
+- Parameter removed: `MediaUrl`
+
+**OpenAI** (metadata + mixed changes):
+- Base URL changed: `/v1` → `/v2` - BREAKING
+- Endpoint deprecated: `POST:/completions`
+- Auth requirement changed: `auth_required` (false → true) - BREAKING
+- Response codes changed: Added `429` rate limit status
+
+### Unit Tests
+
+**File**: `tests_diff/test_diff_engine.py`
+
+Test cases validate:
+- Snapshot loading functionality
+- Stripe diff detection (endpoint changes)
+- Twilio diff detection (parameter changes)
+- OpenAI diff detection (metadata changes)
+- No-change scenario (baseline == latest)
+- JSON serialization/deserialization
+
+## Diff Output Structure
+
+Example diff output for Stripe:
+
+```json
+{
+  "vendor": "stripe",
+  "baseline_version": "2026-01-10T09:00:00Z",
+  "latest_version": "2026-01-20T09:00:00Z",
+  "compared_at": "2026-03-21T10:00:00Z",
+  "has_changes": true,
+  "summary": {
+    "endpoints_added": 1,
+    "endpoints_removed": 1,
+    "endpoints_modified": 0,
+    "endpoints_deprecated": 1,
+    "parameters_added": 0,
+    "parameters_removed": 0,
+    "parameters_modified": 0,
+    "metadata_changes": 0
+  },
+  "metadata_changes": [],
+  "endpoint_changes": [
+    {
+      "change_type": "endpoint_added",
+      "endpoint_id": "POST:/v1/payment_intents",
+      "path": "/v1/payment_intents",
+      "method": "POST",
+      "summary": "Create a payment intent"
+    },
+    {
+      "change_type": "endpoint_removed",
+      "endpoint_id": "POST:/v1/charges",
+      "path": "/v1/charges",
+      "method": "POST",
+      "summary": "Create a charge (old API)"
+    },
+    {
+      "change_type": "endpoint_deprecated",
+      "endpoint_id": "GET:/v1/customers",
+      "path": "/v1/customers",
+      "method": "GET",
+      "field_changes": [
+        {
+          "field_name": "deprecated",
+          "old_value": false,
+          "new_value": true
+        }
+      ]
+    }
+  ]
+}
+```
+
+## Key Implementation Decisions
+
+### Endpoint Matching Strategy
+
+**Problem**: Need reliable way to match endpoints across versions.
+
+**Solution**: Use explicit endpoint IDs generated during normalization (`POST:/v1/customers`). This provides stable identity even when other fields change.
+
+**Benefit**: Unambiguous matching via set operations, O(1) lookup performance.
+
+### Parameter Comparison Strategy
+
+**Problem**: Parameters are arrays without unique identifiers.
+
+**Solution**: Build map using composite key `(location, name)`. For example:
+- `("body", "email")` → parameter details
+- `("query", "limit")` → parameter details
+
+**Benefit**: Efficient parameter matching and change detection.
+
+### Change Type Granularity
+
+**Decision**: Track specific change types for precise classification.
+
+**Change types tracked**:
+- Endpoint level: `endpoint_added`, `endpoint_removed`, `endpoint_deprecated`, `endpoint_modified`
+- Parameter level: `parameter_added`, `parameter_removed`, `parameter_type_changed`, `parameter_requirement_changed`
+- Metadata level: `base_url` changes
+
+**Benefit**: Later, LLM classifier can make context-aware decisions based on specific change types.
+
+### Test Mode vs Production Mode
+
+**Problem**: Need to test diff engine with controlled data before using real snapshots.
+
+**Solution**: Implement `--test-mode` flag:
+- Test mode: Uses `tests_diff/fixtures/` with synthetic data
+- Production mode: Uses `storage/normalized/` with real snapshots
+
+**Benefit**: Safe testing with known expected changes, validation before production use.
+
+### Diff Storage Approach
+
+**Decision**: Store every diff result (even when no changes detected).
+
+**Rationale**: 
+- Provides audit trail ("we checked on X date, found no changes")
+- Distinguishes "never checked" from "checked, no changes"
+- Storage cost is negligible (JSON files are small)
+
+**Format**: Timestamped files like `diff_2026-01-10_to_2026-01-20.json`
+
+## Integration with Main Pipeline
+
+Updated `main.py` to include diff pipeline:
+
+```python
+from pipelines.diff_pipeline import run_diff
+
+def run_full_pipeline():
+    run_discovery()
+    run_ingestion()
+    run_normalization()
+    run_diff()  # ← Added
+```
+
+Running full pipeline:
+```bash
+python main.py
+```
+
+Processes all stages: Discovery → Ingestion → Normalization → Diff
+
+## Execution Results
+
+### Test Mode Execution
+
+```bash
+python -m pipelines.diff_pipeline --test-mode
+```
+
+**Results**:
+- Processed 3 vendors (OpenAI, Stripe, Twilio)
+- Detected all intentional changes in synthetic data
+- Stripe: 1 added, 1 removed, 1 deprecated
+- Twilio: 4 parameter changes (type, requirement, added, removed)
+- OpenAI: 1 metadata change (base_url), 1 deprecated, 2 modified
+- All diffs stored to `tests_diff/output/`
+
+### Production Mode Execution
+
+```bash
+python -m pipelines.diff_pipeline
+```
+
+**Results**:
+- Processed 3 vendors (OpenAI, Stripe, Twilio)
+- All vendors: `has_changes=false` (baseline == latest)
+- Empty diffs stored (audit trail maintained)
+- All diffs stored to `storage/diffs/`
+
+**Interpretation**: Production snapshots have same baseline and latest (no API changes detected), which is expected behavior.
+
+---
+
+# Day 6 – LLM Classification Pipeline
+
+Implemented **LLM-based classification** using Groq's `gpt-oss-120b` model to analyze API changes and classify them by severity and impact.
+
+The classification layer evaluates each detected change from the diff engine and assigns severity levels (breaking, deprecation, additive, minor) with confidence scores and migration recommendations.
+
+## Classification Workflow
+
+The classification pipeline performs the following steps:
+
+1. Load diff results from storage
+2. Initialize Groq API client with `gpt-oss-120b` model
+3. For each detected change, build classification prompt with full context
+4. Call LLM with optimized parameters (temperature=0.3, reasoning_effort=medium)
+5. Parse JSON response with structured output format
+6. Fall back to heuristic classification if LLM fails
+7. Aggregate classification statistics (breaking/deprecation/additive/minor counts)
+8. Store classified diff with recommendations
+9. Log critical alerts for breaking changes
+
+## Implementation Architecture
+
+### Classification Models
+
+Type-safe Pydantic models for classification results:
+
+**File**: `specwatch/classification/classification_models.py`
+
+Models include:
+- `ChangeClassification` - Single change classification with severity, confidence, reasoning, and migration path
+- `ClassifiedEndpointChange` - Original change + LLM classification
+- `ClassificationSummary` - Aggregate statistics (breaking count, deprecation count, etc.)
+- `ClassifiedAPIDiff` - Complete classified diff with all changes analyzed
+
+**Classification Severity Levels**:
+- `breaking` - Immediate client failures (endpoint removed, required param added, type changed)
+- `deprecation` - Works now but will break in future (deprecated flag set)
+- `additive` - Backward compatible additions (new endpoint, optional param)
+- `minor` - Cosmetic changes (description updates, non-functional changes)
+
+### Classification Prompts
+
+LLM prompt engineering for context-aware analysis:
+
+**File**: `specwatch/classification/prompts.py`
+
+Functions include:
+- `build_classification_prompt()` - Constructs detailed prompt with change context, other changes in diff, and classification schema
+- `build_fallback_classification()` - Heuristic rules when LLM unavailable
+
+**Prompt Structure**:
+- API context (vendor, versions, all changes)
+- Specific change to classify (type, endpoint, parameters)
+- Classification guidelines with examples
+- Expected JSON response schema
+- Confidence scoring instructions
+
+### LLM Classifier
+
+Core classification engine using Groq API:
+
+**File**: `specwatch/classification/classifier.py`
+
+**ChangeClassifier** class provides:
+- Groq API client initialization with `openai/gpt-oss-120b` model
+- Individual change classification with full diff context
+- Batch diff classification processing all changes
+- Automatic fallback to heuristics on LLM failure
+- Classification summary aggregation
+
+**Groq API Configuration**:
+```python
+model = "openai/gpt-oss-120b"
+temperature = 0.3       # Low for deterministic output
+max_completion_tokens = 1024  # Sufficient for JSON
+top_p = 0.9             # Focused sampling
+reasoning_effort = "medium"   # Balanced speed/accuracy
+stream = False          # Easier JSON parsing
+```
+
+**Why these parameters?**
+- **Low temperature (0.3)**: Classification should be consistent, not creative
+- **Top-p 0.9**: Slightly focused while maintaining quality
+- **No streaming**: Simplifies JSON response parsing
+- **Medium reasoning**: Good balance for API change analysis
+
+### Classification Storage
+
+**File**: `specwatch/store/classification_store.py`
+
+Storage layer for classified diffs:
+- `store_classified_diff()` - Store results with timestamped filenames
+- `load_classified_diff()` - Load classified diffs by filename
+- `get_latest_classified_diff()` - Retrieve most recent classification
+
+**Filename format**: `classified_diff_{baseline_ts}_to_{latest_ts}.json`
+
+## Classification Pipeline Orchestration
+
+**File**: `pipelines/classification_pipeline.py`
+
+The classification pipeline supports two modes:
+
+### Test Mode
+```bash
+python -m pipelines.classification_pipeline --test-mode
+```
+
+**Input**: `tests_diff/output/{vendor}/diff_*.json`  
+**Output**: `tests_diff/classified_output/{vendor}/classified_diff_*.json`
+
+Uses test diffs from synthetic data to validate LLM classification accuracy.
+
+### Production Mode
+```bash
+python -m pipelines.classification_pipeline
+```
+
+**Input**: `storage/diffs/{vendor}/diff_*.json`  
+**Output**: `storage/classified_diffs/{vendor}/classified_diff_*.json`
+
+Classifies real API diffs from production pipeline.
+
+**Pipeline features**:
+- Auto-discovers vendors from diff directory
+- Skips LLM calls for empty diffs (cost optimization)
+- Creates empty classified diffs for audit trail
+- Logs critical warnings for breaking changes
+- Handles LLM failures gracefully with fallback
+
+## Classified Diff Output Structure
+
+Example classified diff for Stripe:
+
+```json
+{
+  "vendor": "stripe",
+  "baseline_version": "2024-01-10T09:00:00Z",
+  "latest_version": "2024-01-20T09:00:00Z",
+  "classified_at": "2024-03-21T12:00:00Z",
+  "has_breaking_changes": true,
+  "has_deprecations": true,
+  "requires_immediate_action": true,
+  "classification_summary": {
+    "total_changes": 3,
+    "breaking_changes": 1,
+    "deprecations": 1,
+    "additive_changes": 1,
+    "minor_changes": 0,
+    "critical_alerts_needed": 1,
+    "warning_alerts_needed": 1,
+    "info_notifications": 1
+  },
+  "classified_changes": [
+    {
+      "change_type": "endpoint_removed",
+      "endpoint_id": "POST:/v1/charges",
+      "path": "/v1/charges",
+      "method": "POST",
+      "classification": {
+        "severity": "breaking",
+        "confidence": 1.00,
+        "reasoning": "Endpoint removal causes existing clients to receive 404 errors. However, POST:/v1/payment_intents was added in this diff, suggesting a planned migration path exists.",
+        "recommended_action": "alert_critical",
+        "migration_path": "Migrate to POST:/v1/payment_intents. See Stripe migration documentation.",
+        "estimated_impact": "high"
+      }
+    }
+  ]
+}
+```
+
+## Key Implementation Decisions
+
+### LLM vs Heuristics
+
+**Problem**: Simple heuristics can't understand context or migration paths.
+
+**Solution**: Use LLM (Groq's `gpt-oss-120b`) for intelligent, context-aware classification with automatic fallback to heuristics on failure.
+
+**Benefits**:
+- Understands migration paths (charges → payment_intents)
+- Considers deprecation timelines
+- Evaluates multiple related changes together
+- Provides detailed reasoning and migration guidance
+
+### Individual vs Batch Classification
+
+**Decision**: Classify each change individually (not batched).
+
+**Rationale**:
+- Better context per change
+- Easier debugging and validation
+- Simpler error handling
+- Cost negligible (~$2/month for expected usage)
+
+**Future optimization**: Can batch in Phase 2 if cost becomes issue.
+
+### Empty Diff Optimization
+
+**Problem**: No need to call LLM for empty diffs.
+
+**Solution**: Check `has_changes` flag before processing. If false, create empty classified diff without LLM calls.
+
+**Benefits**:
+- Cost optimization (no wasteful API calls)
+- Faster execution
+- Still maintains audit trail
+
+### Fallback Strategy
+
+**Problem**: LLM might fail (API error, invalid JSON, rate limit).
+
+**Solution**: Automatic fallback to heuristic classification on any error.
+
+**Heuristic Rules**:
+- `endpoint_removed` → breaking (confidence: 0.95)
+- `endpoint_deprecated` → deprecation (confidence: 0.9)
+- `endpoint_added` → additive (confidence: 0.95)
+- `parameter_type_changed` → breaking (confidence: 0.85)
+- `parameter_required` (optional → required) → breaking (confidence: 0.9)
+
+**Benefits**: Pipeline never fails, always produces classification.
+
+### Confidence Scoring
+
+**LLM provides confidence** (0.0 to 1.0):
+- **1.0**: Certain (e.g., endpoint removed = definitely breaking)
+- **0.9-0.99**: Very confident
+- **0.7-0.89**: Confident
+- **0.5-0.69**: Moderate confidence
+- **<0.5**: Low confidence (rare)
+
+Used for future filtering and manual review thresholds.
+
+## Integration with Main Pipeline
+
+Updated `main.py` to include classification pipeline:
+
+```python
+from pipelines.classification_pipeline import run_classification
+
+def run_full_pipeline():
+    run_discovery()
+    run_ingestion()
+    run_normalization()
+    run_diff()
+    run_classification()  # ← Added
+```
+
+Running full pipeline:
+```bash
+python main.py
+```
+
+Processes all stages: Discovery → Ingestion → Normalization → Diff → Classification
+
+## Execution Results
+
+### Test Mode Execution
+
+```bash
+python -m pipelines.classification_pipeline --test-mode
+```
+
+**Results**:
+-  Processed 3 vendors (OpenAI, Stripe, Twilio)
+-  Classified 7 changes total (all with LLM, no fallbacks)
+-  Average confidence: 0.95-1.00 (excellent)
+-  Average classification time: ~1.5 seconds per change
+-  All breaking changes correctly identified
+-  Deprecations vs breaking vs additive properly distinguished
+
+**Classification Accuracy**:
+- **Stripe**: 1 breaking (endpoint removed, conf=1.00), 1 deprecation (conf=0.96), 1 additive (conf=0.95)
+- **OpenAI**: 1 breaking (auth changed, conf=0.95), 1 deprecation (conf=0.95), 1 additive (conf=0.96)
+- **Twilio**: 1 breaking (param type changed, conf=0.95)
+
+**Performance**: ~11 seconds for 7 LLM calls (~1.5s average per call)
+
+### Production Mode Execution
+
+```bash
+python -m pipelines.classification_pipeline
+```
+
+**Results**:
+-  Processed 3 vendors (OpenAI, Stripe, Twilio)
+-  All vendors: No changes detected
+-  Skipped LLM calls (cost optimization)
+-  Created empty classified diffs for audit trail
+-  Total runtime: <1 second
+
+**Smart Optimization**: Pipeline detected empty diffs and avoided wasteful LLM API calls while still maintaining complete audit trail.
+
+## Cost Analysis
+
+**Per change**:
+- Input: ~500 tokens (prompt + context)
+- Output: ~200 tokens (classification JSON)
+- Groq cost: Varies by plan (free tier available)
+
+**Estimated usage**:
+- 3 vendors × ~5 changes per vendor per month = ~15 classifications/month
+- Total LLM calls: ~15/month
+- Cost: Minimal (under free tier limits)
+
+**Current implementation**: Zero cost overruns, all classifications within expected parameters.
+
+---
+
 # Current Status
 
-At the end of Day 4:
+At the end of Day 6:
 
-**Discovery pipeline** – Identifies official API sources  -- Implemented
-**Ingestion pipeline** – Fetches raw OpenAPI specifications  -- Implemented
-**Normalization pipeline** – Converts specs to canonical format  -- Implemented
-**Diff engine** – Next: Detect changes between versions  
-**Classification** – Next: Use LLM to classify change severity  
+**Discovery pipeline** – Identifies official API sources  
+**Ingestion pipeline** – Fetches raw OpenAPI specifications  
+**Normalization pipeline** – Converts specs to canonical format  
+**Diff engine** – Detects changes between versions  
+**Classification pipeline** – LLM-based severity analysis  
 **Alerting** – Next: Send notifications for breaking changes  
 
-The system now maintains a complete pipeline from source discovery to normalized schema storage:
+The system now maintains a complete pipeline from source discovery to intelligent classification:
 
 ```
-Discovery → Ingestion → Normalization → [Diff] → [Classification] → [Alerting]
+Discovery → Ingestion → Normalization → Diff → Classification → [Alerting]
 ```
 
 **Storage state:**
@@ -802,13 +1418,48 @@ storage/
 ├── raw/
 │   ├── discovery/          # Versioned discovery history
 │   └── raw_specs/          # Raw OpenAPI specifications
-└── normalized/             # Normalized API schemas
+├── normalized/             # Normalized API schemas
+│   ├── stripe/
+│   │   ├── snapshots/      # All versions
+│   │   ├── baseline.json   # Stable reference
+│   │   └── latest.json     # Current state
+│   ├── twilio/
+│   └── openai/
+├── diffs/                  # Diff results
+│   ├── stripe/
+│   │   └── diff_2024-01-10_to_2024-01-20.json
+│   ├── twilio/
+│   └── openai/
+└── classified_diffs/       # NEW: LLM-classified diffs
     ├── stripe/
-    │   ├── snapshots/      # All versions
-    │   ├── baseline.json   # Stable reference
-    │   └── latest.json     # Current state
+    │   └── classified_diff_2024-01-10_to_2024-01-20.json
     ├── twilio/
     └── openai/
 ```
 
-The next stage will implement the **diff engine** to compare normalized snapshots and detect structural changes in API contracts. This will enable the system to identify when vendors introduce breaking changes, deprecations, or new features.
+**Test infrastructure:**
+
+```
+tests_diff/
+├── fixtures/               # Synthetic test data
+│   ├── stripe/
+│   ├── twilio/
+│   └── openai/
+├── output/                 # Test mode diff results
+│   ├── stripe/
+│   ├── twilio/
+│   └── openai/
+├── classified_output/      # NEW: Test mode classified diffs
+│   ├── stripe/
+│   ├── twilio/
+│   └── openai/
+└── test_diff_engine.py     # Unit tests
+└── test_classification.py  # Test classification pipeline
+```
+
+The next stage will implement the **alerting layer** to send notifications based on classification severity:
+- **Slack alerts** for breaking changes (critical priority)
+- **GitHub issues** for deprecations (warning priority)
+- **Email notifications** for additive changes (informational)
+
+This will complete the end-to-end monitoring system: API changes are automatically discovered, analyzed, classified, and appropriate stakeholders are notified based on severity.

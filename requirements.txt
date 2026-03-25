@@ -9,6 +9,7 @@ dictdiffer>=0.9
 # External APIs
 tavily-python>=0.3
 anthropic>=0.40
+groq
 slack-sdk>=3.27
 
 # Storage (production)

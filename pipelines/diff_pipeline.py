@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from specwatch.diff.diff_engine import compute_diff
-from specwatch.storage.diff_store import store_diff
+from specwatch.store.diff_store import store_diff
 from specwatch.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -151,7 +151,7 @@ def run_diff(
     return len(failed) == 0
 
 
-# For running diff pipeline standalone
+# For running diff pipeline standalone: python -m pipelines.diff_pipeline --test-mode
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description="Run diff pipeline")
