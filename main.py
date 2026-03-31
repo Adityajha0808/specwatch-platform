@@ -7,6 +7,8 @@ from pipelines.ingestion_pipeline import run_ingestion
 from pipelines.normalization_pipeline import run_normalization
 from pipelines.diff_pipeline import run_diff
 from pipelines.classification_pipeline import run_classification
+from pipelines.alerting_pipeline import run_alerting
+
 
 logger = get_logger(__name__)
 
@@ -34,6 +36,10 @@ def run_full_pipeline():
     # Step 5: Classification
     logger.info("Running classification pipeline")
     run_classification()
+
+    # Step 6: Alerting
+    logger.info("Running alerting pipeline")
+    run_alerting()
     
     logger.info("Specwatch pipeline complete")
     return True

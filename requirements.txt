@@ -32,3 +32,17 @@ pytest-cov>=4.1
 black>=24.0
 ruff>=0.1
 mypy>=1.8
+
+
+# Flask web framework
+Flask==3.1.0
+Flask-CORS==5.0.0
+ 
+# GitHub integration
+PyGithub==2.5.0
+ 
+# Email
+Jinja2==3.1.4
+
+python-dateutil==2.9.0
+ 

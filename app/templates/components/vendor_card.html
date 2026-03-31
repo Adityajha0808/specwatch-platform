@@ -1,0 +1,44 @@
+{% macro render_vendor_card(vendor) %}
+<div class="col-md-4 mb-3">
+    <div class="card h-100 
+        {% if vendor.status == 'critical' %}border-danger
+        {% elif vendor.status == 'warning' %}border-warning
+        {% else %}border-success{% endif %}">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <h5 class="card-title">{{ vendor.display_name }}</h5>
+                <span class="badge 
+                    {% if vendor.status == 'critical' %}bg-danger
+                    {% elif vendor.status == 'warning' %}bg-warning text-dark
+                    {% else %}bg-success{% endif %}">
+                    {% if vendor.status == 'critical' %}🔴 Critical
+                    {% elif vendor.status == 'warning' %}⚠️ Warning
+                    {% else %}✅ Healthy{% endif %}
+                </span>
+            </div>
+            
+            <p class="card-text small text-muted">
+                <i class="bi bi-clock"></i> 
+                {% if vendor.last_sync %}
+                    Last sync: {{ vendor.last_sync[:19] }}
+                {% else %}
+                    Never synced
+                {% endif %}
+            </p>
+            
+            <div class="mb-3">
+                <span class="badge bg-secondary">{{ vendor.changes_count }} changes</span>
+                {% if vendor.breaking_count > 0 %}
+                <span class="badge bg-danger">{{ vendor.breaking_count }} breaking</span>
+                {% endif %}
+            </div>
+            
+            <div class="d-grid gap-2">
+                <a href="/vendors/{{ vendor.name }}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-eye"></i> View Details
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endmacro %}

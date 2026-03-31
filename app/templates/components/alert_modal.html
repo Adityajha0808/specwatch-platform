@@ -1,0 +1,242 @@
+<!-- Alert Preview Modal -->
+<div class="modal fade" id="alertModal" tabindex="-1" aria-labelledby="alertModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="alertModalLabel">
+                    <i class="bi bi-bell"></i> Alert Preview
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <div class="modal-body">
+                <!-- Loading state -->
+                <div id="alertLoading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading alert preview...</p>
+                </div>
+                
+                <!-- Alert content -->
+                <div id="alertContent" style="display: none;">
+                    <!-- Tab navigation -->
+                    <ul class="nav nav-tabs mb-3" id="alertTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="github-tab" data-bs-toggle="tab" 
+                                    data-bs-target="#github-preview" type="button" role="tab">
+                                <i class="bi bi-github"></i> GitHub Issue
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="email-tab" data-bs-toggle="tab" 
+                                    data-bs-target="#email-preview" type="button" role="tab">
+                                <i class="bi bi-envelope"></i> Email
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation" id="slack-tab-item" style="display: none;">
+                            <button class="nav-link" id="slack-tab" data-bs-toggle="tab" 
+                                    data-bs-target="#slack-preview" type="button" role="tab">
+                                <i class="bi bi-slack"></i> Slack
+                            </button>
+                        </li>
+                    </ul>
+                    
+                    <!-- Tab content -->
+                    <div class="tab-content" id="alertTabContent">
+                        <!-- GitHub preview -->
+                        <div class="tab-pane fade show active" id="github-preview" role="tabpanel">
+                            <h6>Issue Title</h6>
+                            <div class="alert alert-secondary" id="githubTitle">
+                                Loading...
+                            </div>
+                            
+                            <h6>Issue Body</h6>
+                            <div class="card">
+                                <div class="card-body">
+                                    <pre id="githubBody" style="white-space: pre-wrap; font-size: 0.875rem;">Loading...</pre>
+                                </div>
+                            </div>
+                            
+                            <h6 class="mt-3">Labels</h6>
+                            <div id="githubLabels">
+                                <span class="badge bg-secondary">Loading...</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Email preview -->
+                        <div class="tab-pane fade" id="email-preview" role="tabpanel">
+                            <h6>Subject</h6>
+                            <div class="alert alert-secondary" id="emailSubject">
+                                Loading...
+                            </div>
+                            
+                            <h6>Email Body (HTML Preview)</h6>
+                            <div class="card">
+                                <div class="card-body" id="emailBodyHtml" style="max-height: 400px; overflow-y: auto;">
+                                    Loading...
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Slack preview -->
+                        <div class="tab-pane fade" id="slack-preview" role="tabpanel">
+                            <h6>Slack Message</h6>
+                            <div class="card">
+                                <div class="card-body">
+                                    <pre id="slackMessage" style="white-space: pre-wrap; font-size: 0.875rem;">Loading...</pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Alert metadata -->
+                    <div class="mt-4 p-3 bg-light rounded">
+                        <small class="text-muted">
+                            <strong>Vendor:</strong> <span id="alertVendor">-</span><br>
+                            <strong>Endpoint:</strong> <code id="alertEndpoint">-</code><br>
+                            <strong>Severity:</strong> <span id="alertSeverity">-</span><br>
+                            <strong>Confidence:</strong> <span id="alertConfidence">-</span>%
+                        </small>
+                    </div>
+                </div>
+                
+                <!-- Error state -->
+                <div id="alertError" style="display: none;">
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle"></i> 
+                        <span id="alertErrorMessage">Failed to load alert preview</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="sendGitHubAlert" onclick="sendAlert('github')">
+                    <i class="bi bi-github"></i> Send to GitHub
+                </button>
+                <button type="button" class="btn btn-success" id="sendEmailAlert" onclick="sendAlert('email')">
+                    <i class="bi bi-envelope"></i> Send Email
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Global variables for current alert
+let currentAlertVendor = null;
+let currentAlertIndex = null;
+
+/**
+ * Show alert modal with preview
+ */
+function showAlertModal(vendor, changeIndex) {
+    currentAlertVendor = vendor;
+    currentAlertIndex = changeIndex;
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('alertModal'));
+    modal.show();
+    
+    // Reset state
+    document.getElementById('alertLoading').style.display = 'block';
+    document.getElementById('alertContent').style.display = 'none';
+    document.getElementById('alertError').style.display = 'none';
+    
+    // Fetch preview
+    fetch(`/api/alerts/preview/${vendor}/${changeIndex}`)
+        .then(response => response.json())
+        .then(data => {
+            displayAlertPreview(data);
+        })
+        .catch(error => {
+            document.getElementById('alertLoading').style.display = 'none';
+            document.getElementById('alertError').style.display = 'block';
+            document.getElementById('alertErrorMessage').textContent = error.message;
+        });
+}
+
+/**
+ * Display alert preview in modal
+ */
+function displayAlertPreview(preview) {
+    document.getElementById('alertLoading').style.display = 'none';
+    document.getElementById('alertContent').style.display = 'block';
+    
+    // GitHub preview
+    if (preview.github) {
+        document.getElementById('githubTitle').textContent = preview.github.title;
+        document.getElementById('githubBody').textContent = preview.github.body;
+        
+        const labelsHtml = preview.github.labels
+            .map(label => `<span class="badge bg-secondary me-1">${label}</span>`)
+            .join('');
+        document.getElementById('githubLabels').innerHTML = labelsHtml;
+    }
+    
+    // Email preview
+    if (preview.email) {
+        document.getElementById('emailSubject').textContent = preview.email.subject;
+        document.getElementById('emailBodyHtml').innerHTML = preview.email.body_html;
+    }
+    
+    // Slack preview (if enabled)
+    if (preview.slack) {
+        document.getElementById('slack-tab-item').style.display = 'block';
+        document.getElementById('slackMessage').textContent = preview.slack.text;
+    }
+}
+
+/**
+ * Send alert via selected channel
+ */
+function sendAlert(channel) {
+    if (!currentAlertVendor || currentAlertIndex === null) {
+        alert('No alert selected');
+        return;
+    }
+    
+    const confirmed = confirm(`Send alert via ${channel.toUpperCase()}?`);
+    if (!confirmed) return;
+    
+    // Disable buttons
+    document.getElementById('sendGitHubAlert').disabled = true;
+    document.getElementById('sendEmailAlert').disabled = true;
+    
+    // Send request
+    fetch('/api/alerts/send', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            vendor: currentAlertVendor,
+            change_index: currentAlertIndex,
+            channels: [channel]
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const result = data.results[channel];
+            if (result && result.success) {
+                alert(`✅ Alert sent successfully!\n\n${result.message}`);
+                
+                // Close modal
+                bootstrap.Modal.getInstance(document.getElementById('alertModal')).hide();
+            } else {
+                alert(`❌ Failed to send alert:\n\n${result ? result.message : 'Unknown error'}`);
+            }
+        } else {
+            alert('Error: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        alert('Error sending alert: ' + error.message);
+    })
+    .finally(() => {
+        // Re-enable buttons
+        document.getElementById('sendGitHubAlert').disabled = false;
+        document.getElementById('sendEmailAlert').disabled = false;
+    });
+}
+</script>

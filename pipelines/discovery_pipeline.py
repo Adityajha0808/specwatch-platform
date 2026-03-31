@@ -81,3 +81,8 @@ def run_discovery():
         store_latest_discovery(name, output)
 
     logger.info("Discovery pipeline completed")
+
+
+# For Running discovery pipeline standalone
+if __name__ == "__main__":
+    run_discovery()

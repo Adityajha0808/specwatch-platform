@@ -88,3 +88,8 @@ def run_ingestion():
         store_spec(vendor, spec_content)
 
     logger.info(f"Ingestion pipeline completed. Vendors Processed = {vendors_processed}.")
+
+
+# For Running ingestion pipeline standalone
+if __name__ == "__main__":
+    run_ingestion()
