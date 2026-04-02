@@ -1393,24 +1393,480 @@ python -m pipelines.classification_pipeline
 
 ---
 
+# Days 7-8 – Alerting Pipeline & Dashboard Integration
+
+Implemented complete alerting system with GitHub Issues, Email notifications, and interactive Flask dashboard for pipeline control and visualization.
+
+The alerting layer processes classified diffs and sends notifications via multiple channels based on severity. The dashboard provides real-time pipeline control, vendor management, and alert preview functionality.
+
+## Alerting System Architecture
+
+### Alert Routing Strategy
+
+The alerting system routes notifications based on change severity:
+
+| Severity | GitHub Issue | Email | Rationale |
+|---|---|---|---|
+| Breaking | Yes | Yes | Critical - requires immediate action |
+| Deprecation | Yes | No | Warning - plan migration, create tracking issue |
+| Additive | No | Yes | Info - new features available |
+| Minor | No | No | Logged only - no alerts needed |
+
+This tiered approach ensures stakeholders receive appropriate notifications without alert fatigue.
+
+## Implementation Components
+
+### Alert Data Models
+
+Type-safe Pydantic models for alert structure:
+
+**File**: `specwatch/alerting/alert_models.py`
+
+Models include:
+- `AlertPriority` - Enum: CRITICAL, WARNING, INFO
+- `AlertChannel` - Enum: GITHUB, EMAIL, SLACK
+- `Alert` - Complete alert with vendor, endpoint, severity, reasoning, migration path
+- `AlertResult` - Result of sending alert (success/failure with message)
+
+**Alert Object Structure**:
+```python
+Alert(
+    vendor="stripe",
+    title="BREAKING: POST /v1/payments",
+    severity="breaking",
+    priority=AlertPriority.CRITICAL,
+    endpoint_id="POST:/v1/payments",
+    method="POST",
+    path="/v1/payments",
+    change_type="parameter_removed",
+    reasoning="Required parameter 'source' removed...",
+    migration_path="Replace 'source' with 'payment_method'...",
+    impact="critical",
+    confidence=0.99,
+    baseline_version="2026-03-20T22:51:37Z",
+    latest_version="2026-03-29T20:27:50Z",
+    detected_at="2026-03-31T10:00:00Z"
+)
+```
+
+### Alert Formatters
+
+**File**: `specwatch/alerting/alert_formatter.py`
+
+Formats alerts for different channels:
+- `format_github_issue()` - Markdown-formatted GitHub issue with labels, priority indicators, and code blocks
+- `format_email_html()` - HTML email with color-coded severity, tables, and actionable migration steps
+- `format_email_text()` - Plain text fallback for email clients
+- `format_slack_message()` - Slack blocks with emoji indicators and action buttons
+
+**GitHub Issue Example**:
+```markdown
+# 🔴 BREAKING CHANGE: POST /v1/payments
+
+**Severity**: Breaking  
+**Confidence**: 99%  
+**Impact**: Critical  
+**Detected**: 2026-03-31
+
+## Change Details
+- **Endpoint**: POST /v1/payments
+- **Change Type**: parameter_removed
+- **Versions**: 2026-03-20 → 2026-03-29
+
+## Analysis
+Required parameter 'source' has been removed from POST /v1/payments endpoint...
+
+## Migration Path
+Replace 'source' parameter with new 'payment_method' parameter...
+
+---
+*Labels*: breaking, stripe, api-change
+```
+
+### GitHub Alerter
+
+**File**: `specwatch/alerting/github_alerter.py`
+
+GitHub Issues integration using PyGithub:
+
+Features:
+- Creates issues in designated repository
+- Applies severity-based labels (breaking, deprecation, vendor name)
+- Sets issue title with emoji indicators (🔴 breaking, ⚠️ deprecation)
+- Includes full change context and migration guidance
+- Returns issue URL in alert result
+
+**Configuration (via .env)**:
+```bash
+GITHUB_ENABLED=true
+GITHUB_TOKEN=ghp_xxxxx
+GITHUB_REPO=specwatch-alerts
+```
+
+### Email Alerter
+
+**File**: `specwatch/alerting/email_alerter.py`
+
+SMTP-based email notifications:
+
+Features:
+- Gmail SMTP integration (requires App Password)
+- HTML + plain text multipart messages
+- Color-coded severity indicators
+- Tabular change summaries
+- Individual alerts + daily digest support
+
+**Configuration (via .env)**:
+```bash
+EMAIL_ENABLED=true
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=sender_email
+SMTP_PASSWORD=16-char-app-password
+EMAIL_FROM=sender_email
+EMAIL_TO=receiver_email
+```
+
+### Alerting Pipeline with Test Mode
+
+**File**: `pipelines/alerting_pipeline.py`
+
+Complete alerting orchestration with dual-mode support:
+
+**Production Mode**:
+```bash
+python -m pipelines.alerting_pipeline
+```
+- Reads from: `storage/classified_diffs/`
+- Sends alerts only for actual breaking/deprecation changes
+- Uses real GitHub/Email credentials
+
+**Test Mode**:
+```bash
+python -m pipelines.alerting_pipeline --test
+```
+- Reads from: `test_diffs/`
+- Uses mock data with pre-defined breaking changes
+- Sends **real alerts** to validate setup
+
+**Pipeline Workflow**:
+1. Auto-discover vendors from classified diffs directory
+2. Load latest classified diff for each vendor
+3. Extract critical changes (breaking + deprecations)
+4. For each critical change:
+   - Create Alert object with full context
+   - Determine channels based on severity
+   - Send via GitHub/Email
+   - Log results
+5. Return summary statistics
+
+**Optimization**: Skips vendors with no critical changes.
+
+### Test Fixtures
+
+Mock classified diff with realistic breaking changes:
+- 2 breaking changes (endpoint removed, parameter removed)
+- 1 deprecation (endpoint deprecated)
+- Full LLM-style reasoning and migration paths
+- Confidence scores and impact assessments
+
+**Purpose**: Test alerting setup without waiting for real API changes.
+
+---
+
+## Flask Dashboard Implementation
+
+### Dashboard Architecture
+
+**Technology Stack**:
+- **Backend**: Flask 3.1.0 with Blueprint architecture
+- **Frontend**: Bootstrap 5.3 + Vanilla JavaScript
+- **Icons**: Bootstrap Icons
+- **State Management**: Server-side with JSON file storage
+
+**File Structure**:
+```
+app/
+├── __init__.py                    # Flask factory
+├── config.py                      # Configuration loader
+├── routes/
+│   ├── dashboard.py              # Main dashboard
+│   ├── vendors.py                # Vendor CRUD
+│   ├── pipelines.py              # Pipeline control
+│   └── alerts.py                 # Alert preview/send
+├── templates/
+│   ├── base.html                 # Base layout with navbar
+│   ├── dashboard.html            # Main dashboard
+│   ├── vendors_list.html         # Vendor management
+│   ├── vendor_detail.html        # Per-vendor details
+│   └── components/
+│       ├── vendor_card.html      # Reusable vendor card
+│       ├── change_card.html      # Change display card
+│       └── alert_modal.html      # Alert preview modal
+├── static/
+│   ├── css/style.css             # Custom styles
+│   └── js/main.js                # Dashboard interactions
+└── utils/
+    ├── data_loader.py            # Storage JSON reader
+    └── pipeline_runner.py        # Background pipeline execution
+```
+
+### Core Dashboard Features
+
+**File**: `app/routes/dashboard.py`
+
+Main dashboard displaying:
+- Vendor status cards with health indicators
+- Recent changes timeline (last 30 days)
+- Classification summary statistics
+- Quick pipeline controls
+
+Data Sources:
+- Vendors: `storage/discovery/*.json`
+- Changes: `storage/classified_diffs/{vendor}/*.json`
+- Stats: Aggregated from classified diffs
+
+### Vendor Management
+
+**File**: `app/routes/vendors.py`
+
+CRUD operations for vendors:
+- List vendors: Show all configured vendors with metadata
+- Add vendor: Interactive form with validation
+- Remove vendor: Two-step confirmation with optional storage cleanup
+- Update baseline: Set new baseline version for diff comparison
+- View versions: List all normalized snapshots
+
+### Pipeline Control System
+
+**File**: `app/routes/pipelines.py`
+
+API endpoints for pipeline execution:
+- `POST /api/pipelines/discovery` - Run discovery only
+- `POST /api/pipelines/analysis` - Run ingestion → classification
+- `POST /api/pipelines/full` - Run complete pipeline
+- `POST /api/pipelines/alerting` - Run alerting only
+- `GET /api/pipelines/status` - Real-time progress tracking
+
+**Background Execution**:
+
+**File**: `app/utils/pipeline_runner.py`
+
+Singleton `PipelineRunner` class managing background threads:
+- Spawns daemon threads for non-blocking execution
+- Tracks progress (0-100%) with stage updates
+- Captures stdout/stderr from subprocess
+- Handles timeouts (5 min max)
+- Provides real-time status via `/api/pipelines/status`
+
+**Critical Implementation Detail**: Uses `sys.executable` instead of `"python"` for subprocess calls to ensure venv compatibility on different devices.
+
+### Alert Preview & Send
+
+**File**: `app/routes/alerts.py`
+
+Alert management endpoints:
+- `GET /api/alerts/preview/<vendor>/<index>` - Preview formatted alerts
+- `POST /api/alerts/send` - Send alert via selected channels
+
+**Preview Response Structure**:
+```json
+{
+  "github": {
+    "title": "🔴 BREAKING: POST /v1/payments",
+    "body": "# Breaking Change\n\n...",
+    "labels": ["breaking", "stripe", "api-change"]
+  },
+  "email": {
+    "subject": "🔴 BREAKING CHANGE: Stripe API",
+    "body_html": "<html>...",
+    "body_text": "Breaking change detected..."
+  }
+}
+```
+
+**Alert Modal** (`app/templates/components/alert_modal.html`):
+- Tabbed interface (GitHub / Email / Slack)
+- Live preview of formatted alerts
+- Send buttons with confirmation
+- Loading states and error handling
+- JavaScript functions: `showAlertModal()`, `sendAlert()`
+
+### UI Components
+
+**Vendor Card** (`app/templates/components/vendor_card.html`):
+
+**Change Card** (`app/templates/components/change_card.html`):
+
+### Navbar with Pipeline Controls
+
+**File**: `app/templates/base.html`
+
+
+Pipeline Modal (shows real-time progress).
+
+JavaScript polls `/api/pipelines/status` every 1 second during execution and updates progress bar.
+
+---
+
+## Critical Issues Encountered & Resolved
+
+### Issue 1: Subprocess Execution on Mac
+
+**Problem**: Pipeline buttons in UI returned success immediately (0 seconds) but nothing executed. Discovery should take ~60 seconds but completed instantly.
+
+**Root Cause**: All `subprocess.run()` calls used hardcoded `"python"` instead of venv's Python interpreter. On Mac with virtualenv, `"python"` often resolves to system Python 2.7 or wrong Python 3, causing "module not found" errors that fail silently.
+
+**Logs Observed**:
+```
+04:11:03 | Working directory: /Users/.../specwatch-platform
+04:11:03 | discovery subprocess completed with returncode: 0
+04:11:03 | discovery pipeline completed successfully  # ← Same second!
+```
+
+**Solution Applied**: Replace all `"python"` with `sys.executable`:
+```python
+# BEFORE (broken):
+subprocess.run(["python", "-m", "pipelines.discovery_pipeline"], ...)
+
+# AFTER (fixed):
+subprocess.run([sys.executable, "-m", "pipelines.discovery_pipeline"], ...)
+```
+
+**Result**: Pipelines now execute correctly from UI with proper venv isolation.
+
+### Issue 2: Add Vendor Timeout
+
+**Problem**: Add vendor from UI timed out after 30 seconds with 500 error.
+
+**Cause**: Same as Issue 1 - wrong Python interpreter.
+
+**Solution**: Fixed `vendors.py` to use `sys.executable`.
+
+**Test Solution**: Implemented `--test` mode to validate alerting setup without waiting for real breaking changes.
+
+---
+
+## Testing Infrastructure
+
+### Test Mode for Alerting
+
+**Command**:
+```bash
+python -m pipelines.alerting_pipeline --test
+```
+
+**Purpose**: Test GitHub/Email setup with mock data containing breaking changes.
+
+**Expected Output**:
+```
+INFO | Alerting pipeline started (TEST MODE)
+INFO | GitHub alerter enabled
+INFO | Email alerter enabled
+INFO | Processing alerts for stripe
+INFO | Found 3 critical changes for stripe
+INFO | Sending alert via channels: ['github', 'email']
+INFO | GitHub alert sent: Issue created #123
+INFO | Email alert sent: Email sent to jhaaditya757@gmail.com
+INFO | Alerting complete: 3/3 alert(s) sent successfully
+```
+
+**Verification**:
+- GitHub: Check `https://github.com/Adityajha0808/specwatch-alerts/issues` for 3 new issues
+- Email: Check inbox for 2 emails (breaking changes only)
+
+### Test Fixtures Created
+
+**File**: `tests_diff/classified_output/stripe/classified_diff_test_stripe.json`
+
+Contains realistic test data:
+- `DELETE /v1/customers/{id}` removed (breaking, confidence: 0.98)
+- `POST /v1/payments` parameter `source` removed (breaking, confidence: 0.99)
+- `GET /v1/charges` deprecated (deprecation, confidence: 0.96)
+
+**Purpose**: Validate complete alerting flow without production changes.
+
+---
+
+
+## Execution Results
+
+### Production Run (March 30, 2026)
+
+| Stage | Duration | Notes |
+|---|---|---|
+| Discovery | ~71 seconds | 3 vendors, all sources resolved |
+| Ingestion | ~10 seconds | Hash-based deduplication, all specs unchanged |
+| Normalization | <1 second | Hash-based skip |
+| Diff | <1 second | Stripe: 13 changes detected, others: no changes |
+| Classification | ~107 seconds | 13 Stripe changes classified, all as `minor` |
+| Alerting | <1 second | No breaking/deprecation changes, skipped alerts |
+
+**Total pipeline**: ~3 minutes
+
+**Stripe 13 Changes Analysis**:
+- All in `/v2/core/accounts/*` endpoints
+- All with `field_changes=1, param_changes=0`
+- Timespan: 9 days between versions
+- Classification: All `minor` (confidence 0.96-0.99)
+- Interpretation: Upstream metadata update (descriptions/summaries), correctly classified as non-breaking
+
+### Test Mode Run
+
+**Command**: `python -m pipelines.alerting_pipeline --test`
+
+**Results**:
+- Processed 1 vendor (Stripe)
+- Found 3 critical changes (2 breaking, 1 deprecation)
+- Sent 3 GitHub issues
+- Sent 2 emails (breaking changes only)
+- 100% success rate
+
+**GitHub Issues Created**:
+- `🔴 BREAKING: DELETE /v1/customers/{id}` (#1)
+- `🔴 BREAKING: POST /v1/payments` (#2)
+- `⚠️ DEPRECATION: GET /v1/charges` (#3)
+
+---
+
+## Performance Metrics
+
+**Pipeline Execution (Full)**:
+- Discovery: ~60 seconds (Tavily API calls)
+- Ingestion: ~10 seconds (HTTP fetches with deduplication)
+- Normalization: <1 second (hash-based skip)
+- Diff: <1 second (set operations on 450 endpoints)
+- Classification: ~8 seconds per change (~1.5s LLM call + overhead)
+- Alerting: <1 second (GitHub API + SMTP)
+
+**UI Responsiveness**:
+- Dashboard load: <200ms
+- Pipeline status poll: <50ms
+- Alert preview: <100ms
+
+---
+
 # Current Status
 
-At the end of Day 6:
+At the end of Day 8:
 
 **Discovery pipeline** – Identifies official API sources  
 **Ingestion pipeline** – Fetches raw OpenAPI specifications  
 **Normalization pipeline** – Converts specs to canonical format  
 **Diff engine** – Detects changes between versions  
 **Classification pipeline** – LLM-based severity analysis  
-**Alerting** – Next: Send notifications for breaking changes  
+**Alerting pipeline** – Multi-channel notifications (GitHub, Email, Slack)  
+**Flask dashboard** – Visual interface for pipeline control and monitoring  
 
-The system now maintains a complete pipeline from source discovery to intelligent classification:
+The system now maintains a complete end-to-end pipeline from source discovery to intelligent alerting:
 
 ```
-Discovery → Ingestion → Normalization → Diff → Classification → [Alerting]
+Discovery → Ingestion → Normalization → Diff → Classification → Alerting
 ```
 
-**Storage state:**
+---
+
+## Storage State
 
 ```
 storage/
@@ -1430,14 +1886,19 @@ storage/
 │   │   └── diff_2024-01-10_to_2024-01-20.json
 │   ├── twilio/
 │   └── openai/
-└── classified_diffs/       # NEW: LLM-classified diffs
-    ├── stripe/
-    │   └── classified_diff_2024-01-10_to_2024-01-20.json
-    ├── twilio/
-    └── openai/
+├── classified_diffs/       # LLM-classified diffs
+│   ├── stripe/
+│   │   └── classified_diff_2024-01-10_to_2024-01-20.json
+│   ├── twilio/
+│   └── openai/
+└── alerts/                 # Alert history
+    └── stripe/
+        └── alert_history_2026-03-30.json
 ```
 
-**Test infrastructure:**
+---
+
+## Test Infrastructure
 
 ```
 tests_diff/
@@ -1449,17 +1910,71 @@ tests_diff/
 │   ├── stripe/
 │   ├── twilio/
 │   └── openai/
-├── classified_output/      # NEW: Test mode classified diffs
+├── classified_output/      # Test mode classified diffs
 │   ├── stripe/
+│       └── classified_diff_test.json # Test fixtures for alerting
 │   ├── twilio/
 │   └── openai/
-└── test_diff_engine.py     # Unit tests
+├── test_diff_engine.py     # Unit tests
 └── test_classification.py  # Test classification pipeline
 ```
 
-The next stage will implement the **alerting layer** to send notifications based on classification severity:
-- **Slack alerts** for breaking changes (critical priority)
-- **GitHub issues** for deprecations (warning priority)
-- **Email notifications** for additive changes (informational)
+---
 
-This will complete the end-to-end monitoring system: API changes are automatically discovered, analyzed, classified, and appropriate stakeholders are notified based on severity.
+## Application Structure
+
+```
+app/                        # Flask dashboard
+├── __init__.py
+├── config.py
+├── routes/
+│   ├── dashboard.py
+│   ├── vendors.py
+│   ├── pipelines.py
+│   └── alerts.py
+├── templates/
+│   ├── base.html
+│   ├── dashboard.html
+│   ├── vendors_list.html
+│   ├── vendor_detail.html
+│   └── components/
+│       ├── vendor_card.html
+│       ├── change_card.html
+│       └── alert_modal.html
+├── static/
+│   ├── css/style.css
+│   └── js/main.js
+└── utils/
+    ├── data_loader.py
+    └── pipeline_runner.py
+```
+
+---
+
+## Next Steps (Phase 2)
+
+**Scheduled Execution**:
+- Cron-based pipeline runs (daily/weekly)
+- Automatic baseline updates on production deployments
+- Slack digest emails (daily summary)
+
+**Enhanced Alerting**:
+- Alert acknowledgment system
+- Change approval workflow
+- Alert history and analytics
+
+**Improved Change Detection**:
+- Semantic endpoint matching (detect path migrations like /v1 → /v2)
+- Response schema diff (currently skipped)
+- Query parameter ordering stability
+
+**Dashboard Enhancements**:
+- Real-time WebSocket updates
+- Historical trend charts
+- Vendor comparison view
+- Alert management interface
+
+**Deployment**:
+- Railway/Heroku/Render deployment
+- CI/CD with GitHub Actions
+- Monitoring and logging (Sentry)
