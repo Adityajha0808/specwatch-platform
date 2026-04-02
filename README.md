@@ -85,12 +85,12 @@ GITHUB_REPO=YourUsername/specwatch-alerts
 EMAIL_ENABLED=true
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USERNAME=your-email@gmail.com
+SMTP_USERNAME=sender-email@gmail.com
 SMTP_PASSWORD=xxxx-xxxx-xxxx-xxxx  # Gmail App Password
-EMAIL_FROM=your-email@gmail.com
-EMAIL_TO=your-email@gmail.com
+EMAIL_FROM=sender-email@gmail.com
+EMAIL_TO=receiver-email@gmail.com
 
-# Slack Integration (optional)
+# Slack Integration (disabled for now)
 SLACK_ENABLED=false
 ```
 
@@ -276,8 +276,6 @@ specwatch-platform/
 │   ├── add_vendor.py           # Add new vendor
 │   ├── remove_vendor.py        # Remove vendor
 │   └── update_baseline.py      # Set baseline version
-├── tests/                      # Test infrastructure
-│   └── fixtures/               # Test data
 ├── main.py                     # Pipeline entry point
 ├── app.py                      # Dashboard entry point
 ├── requirements.txt            # Dependencies
@@ -364,44 +362,6 @@ pytest tests/test_diff_engine.py
 
 # Run with verbose output
 pytest -v
-```
-
----
-
-## 📊 Example Output
-
-### Discovery Pipeline
-```
-INFO | Starting discovery pipeline
-INFO | Running discovery for Stripe
-INFO | Running Tavily query: Stripe API documentation
-INFO | Stripe docs source resolved: https://docs.stripe.com/apis
-INFO | Running Tavily query: Stripe OpenAPI specification GitHub
-INFO | Stripe openapi source resolved: https://github.com/stripe/openapi
-INFO | Discovery pipeline completed
-```
-
-### Classification Pipeline
-```
-INFO | Classification pipeline started (PRODUCTION MODE)
-INFO | Classifying changes for stripe
-INFO | Classifying 13 changes for stripe
-INFO | Processing change 1/13
-INFO | Classifying change: endpoint_modified - DELETE:/v2/core/accounts/{account_id}/persons/{id}
-INFO | Classification complete: severity=minor, confidence=0.97
-...
-INFO | Classification complete for stripe: breaking=0, deprecations=0, additive=0, minor=13
-```
-
-### Alerting Pipeline
-```
-INFO | Alerting pipeline started (PRODUCTION MODE)
-INFO | Processing alerts for stripe
-INFO | Found 2 critical changes for stripe
-INFO | Sending alert via channels: ['github', 'email']
-INFO | GitHub alert sent: Issue created #42
-INFO | Email alert sent: Email sent to jhaaditya757@gmail.com
-INFO | Alerting complete: 2/2 alert(s) sent successfully
 ```
 
 ---
@@ -518,10 +478,10 @@ GITHUB_REPO=username/repo-name
 EMAIL_ENABLED=true
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USERNAME=you@gmail.com
+SMTP_USERNAME=sender@gmail.com
 SMTP_PASSWORD=xxxx-xxxx-xxxx-xxxx  # App password
-EMAIL_FROM=you@gmail.com
-EMAIL_TO=you@gmail.com
+EMAIL_FROM=sender@gmail.com
+EMAIL_TO=receiver@gmail.com
 
 # Slack (optional)
 SLACK_ENABLED=false
@@ -650,21 +610,6 @@ Contributions welcome! Areas for improvement:
 - More comprehensive unit tests
 - Integration tests
 - Performance benchmarks
-
----
-
-## 📄 License
-
-MIT License - see LICENSE file for details
-
----
-
-## 🙏 Acknowledgments
-
-- **Tavily** for intelligent search API
-- **Groq** for fast LLM inference
-- **Anthropic** for Claude assistance during development
-- **OpenAPI Initiative** for specification standards
 
 ---
 
