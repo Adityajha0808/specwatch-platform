@@ -11,7 +11,7 @@ Discovery → Ingestion → Normalization → Diff Engine
 
 ---
 
-# Day 1 – Project Setup
+# STEP 1 – Project Setup
 
 ### Repository Structure
 
@@ -58,7 +58,7 @@ if __name__ == "__main__":
 
 ---
 
-# Day 2 – Discovery Pipeline
+# STEP 2 – Discovery Pipeline
 
 Implemented the **source discovery pipeline** responsible for identifying official API sources.
 
@@ -157,7 +157,7 @@ openai.json
 
 ---
 
-# Day 3 – Ingestion Pipeline
+# STEP 3 – Ingestion Pipeline
 
 * Implemented the ingestion layer responsible for retrieving actual API specifications from the sources discovered during the discovery stage.
 
@@ -392,7 +392,7 @@ These files represent the **raw API contract snapshots** that will be used for f
 
 ---
 
-# Day 4 – Normalization Pipeline
+# STEP 4 – Normalization Pipeline
 
 Implemented the **normalization layer** responsible for converting raw OpenAPI specifications into a unified canonical format.
 
@@ -727,7 +727,7 @@ These utilities help validate that normalization is working correctly and provid
 
 ## Key Implementation Decisions
 
-Several critical design choices were made during Day 4 implementation:
+Several critical design choices were made during STEP 4 implementation:
 
 ### Deterministic Output
 
@@ -777,7 +777,7 @@ Benefits:
 
 ---
 
-# Day 5 – Diff Engine Pipeline
+# STEP 5 – Diff Engine Pipeline
 
 Implemented the **diff engine** responsible for comparing normalized snapshots and detecting API changes.
 
@@ -865,8 +865,8 @@ The diff pipeline supports two modes:
 python -m pipelines.diff_pipeline --test-mode
 ```
 
-**Input**: `tests_diff/fixtures/{vendor}/baseline.json` and `latest.json`  
-**Output**: `tests_diff/output/{vendor}/diff_*.json`
+**Input**: `test/normalized_output/{vendor}/baseline.json` and `latest.json`  
+**Output**: `test/diff_output/{vendor}/diff_*.json`
 
 Uses synthetic snapshots with known changes for testing and validation.
 
@@ -890,7 +890,7 @@ Uses real normalized snapshots from production storage.
 
 ### Synthetic Test Data
 
-**Script**: `scripts/create_diff_test_snapshots.py`
+**Script**: `scripts/create_normalized_test_snapshots.py`
 
 Generates synthetic baseline and latest snapshots with intentional differences:
 
@@ -913,7 +913,7 @@ Generates synthetic baseline and latest snapshots with intentional differences:
 
 ### Unit Tests
 
-**File**: `tests_diff/test_diff_engine.py`
+**File**: `scripts/test_diff_engine.py`
 
 Test cases validate:
 - Snapshot loading functionality
@@ -1013,7 +1013,7 @@ Example diff output for Stripe:
 **Problem**: Need to test diff engine with controlled data before using real snapshots.
 
 **Solution**: Implement `--test-mode` flag:
-- Test mode: Uses `tests_diff/fixtures/` with synthetic data
+- Test mode: Uses `test/normalized_output/` with synthetic data
 - Production mode: Uses `storage/normalized/` with real snapshots
 
 **Benefit**: Safe testing with known expected changes, validation before production use.
@@ -1064,7 +1064,7 @@ python -m pipelines.diff_pipeline --test-mode
 - Stripe: 1 added, 1 removed, 1 deprecated
 - Twilio: 4 parameter changes (type, requirement, added, removed)
 - OpenAI: 1 metadata change (base_url), 1 deprecated, 2 modified
-- All diffs stored to `tests_diff/output/`
+- All diffs stored to `test/diff_output/`
 
 ### Production Mode Execution
 
@@ -1082,7 +1082,7 @@ python -m pipelines.diff_pipeline
 
 ---
 
-# Day 6 – LLM Classification Pipeline
+# STEP 6 – LLM Classification Pipeline
 
 Implemented **LLM-based classification** using Groq's `gpt-oss-120b` model to analyze API changes and classify them by severity and impact.
 
@@ -1190,8 +1190,8 @@ The classification pipeline supports two modes:
 python -m pipelines.classification_pipeline --test-mode
 ```
 
-**Input**: `tests_diff/output/{vendor}/diff_*.json`  
-**Output**: `tests_diff/classified_output/{vendor}/classified_diff_*.json`
+**Input**: `test/diff_output/{vendor}/diff_*.json`  
+**Output**: `test/classified_output/{vendor}/classified_diff_*.json`
 
 Uses test diffs from synthetic data to validate LLM classification accuracy.
 
@@ -1393,11 +1393,11 @@ python -m pipelines.classification_pipeline
 
 ---
 
-# Days 7-8 – Alerting Pipeline & Dashboard Integration
+# STEP 7 – Alerting Pipeline
 
-Implemented complete alerting system with GitHub Issues, Email notifications, and interactive Flask dashboard for pipeline control and visualization.
+Implemented complete alerting system with GitHub Issues, Email notifications.
 
-The alerting layer processes classified diffs and sends notifications via multiple channels based on severity. The dashboard provides real-time pipeline control, vendor management, and alert preview functionality.
+The alerting layer processes classified diffs and sends notifications via multiple channels based on severity.
 
 ## Alerting System Architecture
 
@@ -1545,7 +1545,7 @@ python -m pipelines.alerting_pipeline
 ```bash
 python -m pipelines.alerting_pipeline --test
 ```
-- Reads from: `test_diffs/`
+- Reads from: `test/classified/output/`
 - Uses mock data with pre-defined breaking changes
 - Sends **real alerts** to validate setup
 
@@ -1574,7 +1574,53 @@ Mock classified diff with realistic breaking changes:
 
 ---
 
-## Flask Dashboard Implementation
+
+## Testing Infrastructure
+
+### Test Mode for Alerting
+
+**Command**:
+```bash
+python -m pipelines.alerting_pipeline --test
+```
+
+**Purpose**: Test GitHub/Email setup with mock data containing breaking changes.
+
+**Expected Output**:
+```
+INFO | Alerting pipeline started (TEST MODE)
+INFO | GitHub alerter enabled
+INFO | Email alerter enabled
+INFO | Processing alerts for stripe
+INFO | Found 3 critical changes for stripe
+INFO | Sending alert via channels: ['github', 'email']
+INFO | GitHub alert sent: Issue created #123
+INFO | Email alert sent: Email sent to jhaaditya757@gmail.com
+INFO | Alerting complete: 3/3 alert(s) sent successfully
+```
+
+**Verification**:
+- GitHub: Check `https://github.com/Adityajha0808/specwatch-alerts/issues` for 3 new issues
+- Email: Check inbox for 2 emails (breaking changes only)
+
+### Test Fixtures Created
+
+**File**: `test/classified_output/stripe/classified_diff_test_stripe.json`
+
+Contains realistic test data:
+- `DELETE /v1/customers/{id}` removed (breaking, confidence: 0.98)
+- `POST /v1/payments` parameter `source` removed (breaking, confidence: 0.99)
+- `GET /v1/charges` deprecated (deprecation, confidence: 0.96)
+
+**Purpose**: Validate complete alerting flow without production changes.
+
+---
+
+# STEP 8 - Dashboard Integration
+
+Implemented interactive Flask dashboard for pipeline control and visualization. 
+
+The dashboard provides real-time pipeline control, vendor management, and alert preview functionality.
 
 ### Dashboard Architecture
 
@@ -1711,6 +1757,8 @@ JavaScript polls `/api/pipelines/status` every 1 second during execution and upd
 
 ## Critical Issues Encountered & Resolved
 
+Below issues were encountered while implementing Dashboard:
+
 ### Issue 1: Subprocess Execution on Mac
 
 **Problem**: Pipeline buttons in UI returned success immediately (0 seconds) but nothing executed. Discovery should take ~60 seconds but completed instantly.
@@ -1747,51 +1795,10 @@ subprocess.run([sys.executable, "-m", "pipelines.discovery_pipeline"], ...)
 
 ---
 
-## Testing Infrastructure
 
-### Test Mode for Alerting
+# Execution Results
 
-**Command**:
-```bash
-python -m pipelines.alerting_pipeline --test
-```
-
-**Purpose**: Test GitHub/Email setup with mock data containing breaking changes.
-
-**Expected Output**:
-```
-INFO | Alerting pipeline started (TEST MODE)
-INFO | GitHub alerter enabled
-INFO | Email alerter enabled
-INFO | Processing alerts for stripe
-INFO | Found 3 critical changes for stripe
-INFO | Sending alert via channels: ['github', 'email']
-INFO | GitHub alert sent: Issue created #123
-INFO | Email alert sent: Email sent to jhaaditya757@gmail.com
-INFO | Alerting complete: 3/3 alert(s) sent successfully
-```
-
-**Verification**:
-- GitHub: Check `https://github.com/Adityajha0808/specwatch-alerts/issues` for 3 new issues
-- Email: Check inbox for 2 emails (breaking changes only)
-
-### Test Fixtures Created
-
-**File**: `tests_diff/classified_output/stripe/classified_diff_test_stripe.json`
-
-Contains realistic test data:
-- `DELETE /v1/customers/{id}` removed (breaking, confidence: 0.98)
-- `POST /v1/payments` parameter `source` removed (breaking, confidence: 0.99)
-- `GET /v1/charges` deprecated (deprecation, confidence: 0.96)
-
-**Purpose**: Validate complete alerting flow without production changes.
-
----
-
-
-## Execution Results
-
-### Production Run (March 30, 2026)
+## Production Run (March 30, 2026)
 
 | Stage | Duration | Notes |
 |---|---|---|
@@ -1811,7 +1818,7 @@ Contains realistic test data:
 - Classification: All `minor` (confidence 0.96-0.99)
 - Interpretation: Upstream metadata update (descriptions/summaries), correctly classified as non-breaking
 
-### Test Mode Run
+## Test Mode Run
 
 **Command**: `python -m pipelines.alerting_pipeline --test`
 
@@ -1848,7 +1855,7 @@ Contains realistic test data:
 
 # Current Status
 
-At the end of Day 8:
+At the end of STEP 8:
 
 **Discovery pipeline** – Identifies official API sources  
 **Ingestion pipeline** – Fetches raw OpenAPI specifications  
@@ -1901,22 +1908,24 @@ storage/
 ## Test Infrastructure
 
 ```
-tests_diff/
-├── fixtures/               # Synthetic test data
+test/
+├── normalized_output/               # Synthetic normalized test data for diff input
 │   ├── stripe/
 │   ├── twilio/
 │   └── openai/
-├── output/                 # Test mode diff results
+├── diff_output/                 # Test mode diff results and input for LLM classification
 │   ├── stripe/
 │   ├── twilio/
 │   └── openai/
-├── classified_output/      # Test mode classified diffs
+├── classified_output/      # Test mode classified diffs for alerting input
 │   ├── stripe/
-│       └── classified_diff_test.json # Test fixtures for alerting
+│       └── classified_diff_test_stripe.json # Test fixtures for alerting
 │   ├── twilio/
 │   └── openai/
-├── test_diff_engine.py     # Unit tests
-└── test_classification.py  # Test classification pipeline
+
+
+scripts/
+├── test_diff_engine.py     # Unit tests for diff pipeline
 ```
 
 ---

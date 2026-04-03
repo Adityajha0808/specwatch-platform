@@ -5,7 +5,7 @@ Compares baseline and latest normalized snapshots to detect changes.
 
 import json
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Dict, Any, List
 
 from specwatch.utils.logger import get_logger
@@ -63,7 +63,7 @@ def compute_diff(baseline_path: str, latest_path: str, vendor: str = None) -> AP
         vendor=vendor,
         baseline_version=baseline_version,
         latest_version=latest_version,
-        compared_at=datetime.utcnow().isoformat() + "Z",
+        compared_at=datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%S') + "Z",
         has_changes=False,
         summary=DiffSummary()
     )

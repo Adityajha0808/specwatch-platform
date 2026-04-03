@@ -5,7 +5,7 @@ Provides type-safe data structures for diff results.
 
 from typing import List, Dict, Any, Optional, Literal
 from pydantic import BaseModel, Field
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 # Represents a change to a single parameter

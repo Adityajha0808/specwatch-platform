@@ -1,6 +1,6 @@
 import os
 import hashlib
-from datetime import datetime
+from datetime import datetime, UTC
 from specwatch.utils.logger import get_logger
 
 
@@ -20,7 +20,7 @@ def ensure_directory():
 
 def generate_filename(vendor, extension):
 
-    timestamp = datetime.utcnow().replace(microsecond=0).isoformat().replace(":", "-")
+    timestamp = datetime.now(UTC).replace(microsecond=0, tzinfo=None).isoformat().replace(":", "-")
 
     filename = f"{vendor}_openapi_{timestamp}.{extension}"
 

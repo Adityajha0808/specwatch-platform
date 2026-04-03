@@ -3,7 +3,7 @@ Diff Engine Pipeline - Compare normalized snapshots to detect API changes.
 
 Args:
     vendors: List of vendors to process
-    test_mode:  If test_mode is True, read from tests_diff/fixtures/ and write to tests_diff/output/
+    test_mode:  If test_mode is True, read from test/normalized_output/ and write to test/diff_output/
     Production Mode: If test_mode is False, read from storage/normalized/ and write to storage/diffs/
 """
 
@@ -105,8 +105,8 @@ def run_diff(
 
     # Determine input/output directories based on mode
     if test_mode:
-        input_dir = "tests_diff/fixtures"
-        output_dir = "tests_diff/output"
+        input_dir = "test/normalized_output"
+        output_dir = "test/diff_output"
         mode_label = "TEST MODE"
     else:
         input_dir = "storage/normalized"
@@ -151,7 +151,7 @@ def run_diff(
     return len(failed) == 0
 
 
-# For running diff pipeline standalone: python -m pipelines.diff_pipeline --test-mode
+# For running diff pipeline standalone: python3 -m pipelines.diff_pipeline --test-mode
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description="Run diff pipeline")
@@ -163,7 +163,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--test-mode",
         action="store_true",
-        help="Run in test mode (uses tests_diff/fixtures/ and tests_diff/output/)"
+        help="Run in test mode (uses test/normalized_output/ and test/diff_output/)"
     )
     
     args = parser.parse_args()

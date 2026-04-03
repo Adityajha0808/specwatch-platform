@@ -9,11 +9,11 @@ Creates baseline.json and latest.json for each vendor with intentional differenc
 
 import json
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 
 
-# Base directory for test fixtures
-FIXTURES_DIR = Path("tests_diff/fixtures")
+# Base directory for normalized test fixtures
+FIXTURES_DIR = Path("test/normalized_output")
 
 
 # Create Stripe baseline and latest snapshots with endpoint changes
@@ -557,9 +557,9 @@ def main():
     print("="*60)
     print(f"\n Location: {FIXTURES_DIR.absolute()}")
     print("\n Next steps:")
-    print("1. Verify fixtures: ls -R tests_diff/fixtures/")
+    print("1. Verify normalized fixtures: ls -R test/normalized_output/")
     print("2. Run diff pipeline: python -m pipelines.diff_pipeline --test-mode")
-    print("3. Check results: cat tests_diff/output/stripe/diff_*.json")
+    print("3. Check results: cat test/diff_output/stripe/diff_*.json")
     print()
 
 

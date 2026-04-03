@@ -84,7 +84,7 @@ Thumbs.db # Windows
 
 # SpecWatch generated data
 storage/
-tests_diff
+test
 
 # env file
 .env

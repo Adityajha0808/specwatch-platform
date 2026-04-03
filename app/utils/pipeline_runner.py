@@ -11,7 +11,7 @@ import logging
 import sys
 from pathlib import Path
 from typing import Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, UTC
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +126,7 @@ class PipelineRunner:
             
             finally:
                 self.status["running"] = False
-                self.status["completed_at"] = datetime.utcnow().isoformat()
+                self.status["completed_at"] = datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%S')
         
         self.current_thread = threading.Thread(target=run, daemon=True)
         self.current_thread.start()
@@ -185,7 +185,7 @@ class PipelineRunner:
             
             finally:
                 self.status["running"] = False
-                self.status["completed_at"] = datetime.utcnow().isoformat()
+                self.status["completed_at"] = datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%S')
         
         self.current_thread = threading.Thread(target=run, daemon=True)
         self.current_thread.start()
@@ -284,7 +284,7 @@ class PipelineRunner:
             
             finally:
                 self.status["running"] = False
-                self.status["completed_at"] = datetime.utcnow().isoformat()
+                self.status["completed_at"] = datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%S')
         
         self.current_thread = threading.Thread(target=run, daemon=True)
         self.current_thread.start()
@@ -299,7 +299,7 @@ class PipelineRunner:
         # Add timestamp to logs
         if "message" in kwargs:
             self.status["logs"].append({
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%S'),
                 "message": kwargs["message"]
             })
             logger.info(kwargs["message"])

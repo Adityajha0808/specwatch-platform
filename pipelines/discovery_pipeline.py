@@ -13,7 +13,7 @@ from specwatch.config.config_validator import validate_configs
 from specwatch.store.raw_discovery_store import store_raw
 from specwatch.store.discovery_store import store_latest_discovery
 from specwatch.utils.logger import get_logger
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 logger = get_logger(__name__)
@@ -41,7 +41,7 @@ def run_discovery():
         output = {
             "vendor": name,
             "api": display_name,
-            "discovered_at": datetime.utcnow().isoformat(),
+            "discovered_at": datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%S'),
             "sources": {}
         }
 
@@ -83,6 +83,6 @@ def run_discovery():
     logger.info("Discovery pipeline completed")
 
 
-# For Running discovery pipeline standalone
+# For Running discovery pipeline standalone: python3 -m pipelines.discovery_pipeline
 if __name__ == "__main__":
     run_discovery()

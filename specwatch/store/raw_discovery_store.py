@@ -3,7 +3,7 @@
 
 import json
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, UTC
 
 from specwatch.utils.logger import get_logger
 
@@ -19,7 +19,7 @@ def ensure_storage():
 
 def generate_filename(vendor_name: str):
 
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
 
     return f"{vendor_name}_{timestamp}.json"
 

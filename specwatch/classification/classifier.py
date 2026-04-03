@@ -5,7 +5,7 @@ LLM-based classifier for API changes to classify changes by severity and impact.
 import json
 import os
 from typing import Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, UTC
 from dotenv import load_dotenv
 
 from groq import Groq
@@ -168,7 +168,7 @@ class ChangeClassifier:
             vendor=diff.vendor,
             baseline_version=diff.baseline_version,
             latest_version=diff.latest_version,
-            classified_at=datetime.utcnow().isoformat() + "Z",
+            classified_at=datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%S') + "Z",
             diff_summary=diff.summary.model_dump(),
             classified_changes=classified_changes,
             classification_summary=summary,

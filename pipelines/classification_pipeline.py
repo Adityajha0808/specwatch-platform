@@ -2,7 +2,7 @@
 Classification Pipeline - LLM-based classification of API changes by severity and impact.
 
 Supports two modes:
-- Test mode: Uses test diffs from tests_diff/output/
+- Test mode: Uses test diffs from test/diff_output/
 - Production mode: Uses real diffs from storage/diffs/
 """
 
@@ -11,7 +11,7 @@ import json
 import argparse
 from pathlib import Path
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, UTC
 
 from specwatch.classification.classifier import ChangeClassifier
 from specwatch.diff.diff_models import APIDiff
@@ -101,7 +101,7 @@ def classify_vendor(
             vendor=vendor,
             baseline_version=diff.baseline_version,
             latest_version=diff.latest_version,
-            classified_at=datetime.utcnow().isoformat() + "Z",
+            classified_at=datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%S') + "Z",
             diff_summary=diff.summary.model_dump(),
             classified_changes=[],
             classification_summary=ClassificationSummary(),
@@ -158,8 +158,8 @@ def run_classification(
     
     # Determine input/output directories based on mode
     if test_mode:
-        diff_dir = "tests_diff/output"
-        output_dir = "tests_diff/classified_output"
+        diff_dir = "test/diff_output"
+        output_dir = "test/classified_output"
         mode_label = "TEST MODE"
     else:
         diff_dir = "storage/diffs"
@@ -213,7 +213,7 @@ def run_classification(
     return len(failed) == 0
 
 
-# For running classification pipeline standalone: python -m pipelines.classification_pipeline --test-mode
+# For running classification pipeline standalone: python3 -m pipelines.classification_pipeline --test-mode
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description="Run LLM classification pipeline")
@@ -225,7 +225,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--test-mode",
         action="store_true",
-        help="Run in test mode (uses tests_diff/output/ and tests_diff/classified_output/)"
+        help="Run in test mode (uses test/diff_output/ and test/classified_output/)"
     )
     
     args = parser.parse_args()

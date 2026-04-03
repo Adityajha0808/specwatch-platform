@@ -137,7 +137,7 @@ def _discover_vendors() -> List[str]:
     return vendor_list
 
 
-# For Running normalization pipeline standalone
+# For Running normalization pipeline standalone: python3 -m pipelines.normalization_pipeline
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description="Run normalization pipeline")

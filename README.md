@@ -353,15 +353,8 @@ python3 -m pipelines.alerting_pipeline --test
 
 ### Run Unit Tests
 
-```bash
-# Run all tests
-pytest
-
-# Run specific test file
-pytest tests/test_diff_engine.py
-
-# Run with verbose output
-pytest -v
+```
+Run: python3 -m scripts.test_diff_engine
 ```
 
 ---

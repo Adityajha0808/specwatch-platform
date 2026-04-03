@@ -90,6 +90,6 @@ def run_ingestion():
     logger.info(f"Ingestion pipeline completed. Vendors Processed = {vendors_processed}.")
 
 
-# For Running ingestion pipeline standalone
+# For Running ingestion pipeline standalone: python3 -m pipelines.ingestion_pipeline
 if __name__ == "__main__":
     run_ingestion()

@@ -1,7 +1,7 @@
 """
 Storage layer for diff results.
 Handles storing and retrieving diff results for both test and production modes.
-Storage: Base directory for diffs, "storage/diffs" for production, "tests_diff/output" for testing
+Storage: Base directory for diffs, "storage/diffs" for production, "test/diff_output" for testing
 """
 
 

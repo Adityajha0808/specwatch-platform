@@ -120,10 +120,11 @@ specwatch-platform/
 │   ├── diffs/              # Diff results
 │   ├── classified_diffs/   # LLM classifications
 │   └── alerts/             # Alert history
-├── tests/                  # Test infrastructure
-│   ├── fixtures/
-│   │   └── test_diffs/     # Mock data for testing
-│   └── test_*.py
+├── test/                  # Test infrastructure
+│   ├── classified_output/
+│   ├── normalized_output/
+│   ├── diff_output/
+│   └── test_*.py           # Test scripts
 ├── scripts/                # Management scripts
 │   ├── add_vendor.py
 │   ├── remove_vendor.py
@@ -579,7 +580,7 @@ Replace 'source' parameter with 'payment_method'...
 python -m pipelines.alerting_pipeline --test
 ```
 
-Uses `tests/fixtures/test_diffs/` for testing GitHub/Email setup without waiting for real changes.
+Uses `test/classified_output/` for testing GitHub/Email setup without waiting for real changes.
 
 **Key Features**:
 - ✅ Severity-based routing

@@ -8,7 +8,7 @@ Orchestrates parsing, extraction, and storage of normalized specs. Creates times
 import os
 import hashlib
 import json
-from datetime import datetime
+from datetime import datetime, UTC
 from pathlib import Path
 from typing import Dict, Any
 
@@ -59,7 +59,7 @@ def normalize_spec(vendor: str, source_file: str) -> Dict[str, Any]:
         canonical = {
             "metadata": {
                 "vendor": vendor,
-                "normalized_at": datetime.utcnow().isoformat() + "Z",
+                "normalized_at": datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%S') + "Z",
                 "source_file": str(Path(source_file).name),
                 "source_hash": source_hash,
                 "schema_version": SCHEMA_VERSION,
@@ -203,7 +203,7 @@ def _extract_timestamp_from_filename(filepath: str) -> str:
             logger.info(f"Timestamp found in filename {part}")
             return part
     
-    fallback_timestamp = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    fallback_timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     logger.warning(f"Timestamp extraction failed {filepath} using fallback {fallback_timestamp}")
     
     return fallback_timestamp

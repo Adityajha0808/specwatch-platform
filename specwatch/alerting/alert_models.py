@@ -5,7 +5,7 @@ Alert data models.
 from enum import Enum
 from typing import Optional, List
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 # Alert delivery channels
@@ -37,7 +37,7 @@ class Alert(BaseModel):
     migration_path: Optional[str]
     priority: AlertPriority
     channels: List[AlertChannel]
-    created_at: str = datetime.utcnow().isoformat()
+    created_at: str = datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%S')
     
     # Create Alert from classified change
     @classmethod
@@ -82,4 +82,4 @@ class AlertResult(BaseModel):
     success: bool
     message: str
     metadata: Optional[dict] = None
-    sent_at: str = datetime.utcnow().isoformat()
+    sent_at: str = datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%S')

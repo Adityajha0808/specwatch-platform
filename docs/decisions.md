@@ -486,11 +486,11 @@ def determine_channels(severity: str) -> List[AlertChannel]:
 
 **Solution**:
 ```bash
-# Test mode uses mock data from tests/fixtures/
+# Test mode uses mock data from test/classified_output/
 python -m pipelines.alerting_pipeline --test
 ```
 
-**Mock Data** (`tests/fixtures/test_diffs/stripe/classified_diff_test.json`):
+**Mock Data** (`test/classified_output/stripe/classified_diff_test_stripe.json`):
 ```json
 {
   "classified_changes": [
@@ -927,7 +927,7 @@ def test_stripe_breaking_change_detection():
 ### What We'd Do Differently
 
 1. **Start with sys.executable** - Wasted 2 days debugging subprocess issues
-2. **Test mode from day 1** - Would have caught issues earlier
+2. **Test mode from beginning** - Would have caught issues earlier
 3. **More aggressive caching** - Could have cached Tavily results longer
 4. **Dashboard auth** - Should have added basic auth before testing
 

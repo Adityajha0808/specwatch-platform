@@ -10,7 +10,7 @@ import json
 import argparse
 from pathlib import Path
 from typing import Dict, List, Optional
-from datetime import datetime
+from datetime import datetime, UTC
 
 from specwatch.alerting.github_alerter import GitHubAlerter
 from specwatch.alerting.email_alerter import EmailAlerter
@@ -35,7 +35,7 @@ class AlertingPipeline:
         
         # Set input path based on mode
         if test_mode:
-            self.input_path = Path("tests_diff/classified_output")
+            self.input_path = Path("test/classified_output")
             logger.info("Alerting pipeline started (TEST MODE)")
         else:
             self.input_path = Path("storage/classified_diffs")
@@ -225,7 +225,7 @@ class AlertingPipeline:
             baseline_version=classified_diff.get("baseline_version", ""),
             latest_version=classified_diff.get("latest_version", ""),
             channels=["github", "email"],
-            detected_at=datetime.utcnow().isoformat()
+            detected_at=datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%S')
         )
         
         return alert
@@ -288,8 +288,8 @@ class AlertingPipeline:
 
 # Main entry point for alerting pipeline
 # Usage:
-#   python -m pipelines.alerting_pipeline              # Production mode
-#   python -m pipelines.alerting_pipeline --test       # Test mode
+#   python3 -m pipelines.alerting_pipeline              # Production mode
+#   python3 -m pipelines.alerting_pipeline --test       # Test mode
 def main():
 
     parser = argparse.ArgumentParser(description="SpecWatch Alerting Pipeline")
