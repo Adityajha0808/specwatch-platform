@@ -102,8 +102,8 @@ def find_vendor_storage(name: str) -> dict:
         # Check for vendor-specific files/directories
         vendor_items = []
         
-        if base_path.name == "discovery" and base_path.parent.name == "raw":
-            # storage/raw/discovery/{vendor}_*.json
+        if base_path.name == "raw_discovery" and base_path.parent.name == "raw":
+            # storage/raw/raw_discovery/{vendor}_*.json
             vendor_items = list(base_path.glob(f"{name}_*.json"))
         
         elif base_path.name == "raw_specs":

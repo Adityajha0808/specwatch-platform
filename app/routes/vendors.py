@@ -157,8 +157,7 @@ def api_remove(vendor):
                 storage_base / "raw" / "raw_specs",
                 storage_base / "normalized" / vendor,
                 storage_base / "diffs" / vendor,
-                storage_base / "classified_diffs" / vendor,
-                storage_base / "alerts" / f"{vendor}_alert_history.json"
+                storage_base / "classified_diffs" / vendor
             ]
             
             for location in locations:
