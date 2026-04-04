@@ -1,135 +1,133 @@
-#!/usr/bin/env python
-"""Add a new vendor to SpecWatch configuration."""
+#!/usr/bin/env python3
+"""
+Add vendor script with full configuration support.
 
-import json
+Usage:
+    python scripts/add_vendor.py <vendor_name> <display_name> [options]
+    
+Options:
+    --openapi-url URL       OpenAPI specification URL
+    --trusted-domains DOMAIN1,DOMAIN2,...  Trusted domains (comma-separated)
+    
+Example:
+    python scripts/add_vendor.py stripe "Stripe" \
+        --openapi-url "https://github.com/stripe/openapi" \
+        --trusted-domains "stripe.com,github.com" \
+"""
+
 import sys
+import json
 import argparse
 from pathlib import Path
 
 
-# Paths
-CONFIG_DIR = Path("specwatch/config/json")
-VENDORS_PATH = CONFIG_DIR / "vendors.json"
-REGISTRY_PATH = CONFIG_DIR / "vendor_registry.json"
-SPECS_PATH = CONFIG_DIR / "vendor_specs.json"
+# Add vendor to all configuration files
+def add_vendor(
+    vendor_name: str,
+    display_name: str,
+    openapi_url: str = None,
+    trusted_domains: list = None
+):
+    
+    config_dir = Path("specwatch/config/json")
+    config_dir.mkdir(parents=True, exist_ok=True)
+    
+    vendors_path = config_dir / "vendors.json"
+    registry_path = config_dir / "vendor_registry.json"
+    specs_path = config_dir / "vendor_specs.json"
+    queries_path = config_dir / "discovery_queries.json"
+    
+    # 1. Add to vendors.json
+    data = {"vendors": []}  # Initialize with the vendor dictionary structure
 
-
-# Load JSON file
-def load_json(path: Path) -> dict:
-    if not path.exists():
-        raise FileNotFoundError(f"Config file not found: {path}")
-
-    with open(path, "r") as f:
-        return json.load(f)
-
-
-# Save JSON file with formatting
-def save_json(path: Path, data: dict):
-    with open(path, "w") as f:
-        json.dump(data, f, indent=2)
-        f.write("\n")
-
-
-# Check if vendor already exists in vendors.json
-def vendor_exists(name: str) -> bool:
-    vendors_config = load_json(VENDORS_PATH)
-    return any(v["name"] == name for v in vendors_config["vendors"])
-
-
-# Add vendor to vendors.json
-def add_to_vendors_json(name: str, display_name: str):
-    config = load_json(VENDORS_PATH)
-
-    vendor = {
-        "name": name,
+    if vendors_path.exists():
+        try:
+            with open(vendors_path, 'r') as f:
+                content = f.read().strip()
+                if content:
+                    data = json.loads(content)
+        except json.JSONDecodeError:
+            print(f"Warning: {vendors_path} was corrupted, resetting.")
+    
+    # Extract the list from the dictionary
+    vendors_list = data.get("vendors", [])
+    
+    # Check if already exists
+    if any(v['name'] == vendor_name for v in vendors_list):
+        print(f"Error: Vendor '{vendor_name}' already exists", file=sys.stderr)
+        sys.exit(1)
+    
+    # Append the new vendor object
+    new_vendor = {
+        "name": vendor_name,
         "display_name": display_name
     }
+    vendors_list.append(new_vendor)
+    
+    # Update the dictionary and save
+    data["vendors"] = vendors_list
 
-    config["vendors"].append(vendor)
-    config["vendors"] = sorted(config["vendors"], key=lambda v: v["name"])
-
-    save_json(VENDORS_PATH, config)
-
-
-# Add vendor to vendor_registry.json
-def add_to_vendor_registry(name: str, domains: list):
-    config = load_json(REGISTRY_PATH)
-
-    config["vendors"][name] = {
-        "trusted_domains": domains
-    }
-
-    config["vendors"] = dict(sorted(config["vendors"].items()))
-    save_json(REGISTRY_PATH, config)
-
-
-# Add vendor to vendor_specs.json (optional)
-def add_to_vendor_specs(name: str, spec_url: str):
-    config = load_json(SPECS_PATH)
-
-    config[name] = spec_url
-    config = dict(sorted(config.items()))
-
-    save_json(SPECS_PATH, config)
-
-
-# Add vendor to specwatch
-def add_vendor(name: str, display_name: str, domains: list, spec_url: str = None):
-    name = name.strip().lower()
-
-    if not name:
-        raise ValueError("Vendor name cannot be empty")
-
-    if vendor_exists(name):
-        raise ValueError(f"Vendor '{name}' already exists")
-
-    if "github.com" not in domains:
-        domains.append("github.com")
-
-    add_to_vendors_json(name, display_name)
-    add_to_vendor_registry(name, domains)
-
-    if spec_url:
-        add_to_vendor_specs(name, spec_url)
-
-    return True
+    with open(vendors_path, 'w') as f:
+        json.dump(data, f, indent=2)
+    
+    print(f"✓ Added to vendors.json")
+    
+    # 2. Add to vendor_registry.json (if URLs provided)
+    registry = {}
+    if registry_path.exists():
+        with open(registry_path, 'r') as f:
+            registry = json.load(f)
+    
+    if trusted_domains:
+        registry['vendors'][vendor_name] = {
+            "trusted_domains": trusted_domains
+        }
+    
+    with open(registry_path, 'w') as f:
+        json.dump(registry, f, indent=2)
+    
+    print(f"✓ Added to vendor_registry.json")
+    
+    # 3. Add to vendor_specs.json (if URLs provided)
+    specs = {}
+    if specs_path.exists():
+        with open(specs_path, 'r') as f:
+            specs = json.load(f)
+    
+    if openapi_url:
+        specs[vendor_name] = openapi_url
+        
+        with open(specs_path, 'w') as f:
+            json.dump(specs, f, indent=2)
+        
+        print(f"✓ Added to vendor_specs.json")
 
 
-# Interactive cli for vendor addition workflow
-def interactive_cli():
-    print("\n" + "=" * 60)
-    print("Add New Vendor to SpecWatch")
-    print("=" * 60 + "\n")
-
-    name = input("Vendor slug: ").strip().lower()
-    display_name = input("Display name: ").strip() or name.capitalize()
-
-    domains_input = input("Domains (comma-separated): ").strip()
-    domains = [d.strip() for d in domains_input.split(",") if d.strip()]
-
-    spec_url = input("Spec URL (optional): ").strip()
-    confirm = input("Add this vendor? (y/N): ").strip().lower()
-
-    if confirm != "y":
-        print("Cancelled")
-        sys.exit(0)
-
-    add_vendor(name, display_name, domains, spec_url)
-    print(f"Vendor '{display_name}' added successfully")
-
-
-# Main Entry point
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("name", nargs="?")
-    parser.add_argument("display_name", nargs="?")
-    parser.add_argument("--domains", default="")
-    parser.add_argument("--spec-url", default="")
-
+def main():
+    parser = argparse.ArgumentParser(
+        description="Add vendor to SpecWatch configuration",
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    
+    parser.add_argument('vendor_name', help='Vendor ID (lowercase, no spaces)')
+    parser.add_argument('display_name', help='Display name (e.g., "Stripe")')
+    parser.add_argument('--openapi-url', help='OpenAPI specification URL')
+    parser.add_argument('--trusted-domains', help='Trusted domains (comma-separated)')
+    
     args = parser.parse_args()
+    
+    # Parse trusted domains
+    trusted_domains = None
+    if args.trusted_domains:
+        trusted_domains = [d.strip() for d in args.trusted_domains.split(',')]
+    
+    add_vendor(
+        vendor_name=args.vendor_name,
+        display_name=args.display_name,
+        openapi_url=args.openapi_url,
+        trusted_domains=trusted_domains
+    )
 
-    if args.name and args.display_name:
-        domains = [d.strip() for d in args.domains.split(",") if d.strip()]
-        add_vendor(args.name, args.display_name, domains, args.spec_url)
-    else:
-        interactive_cli()
+
+if __name__ == '__main__':
+    main()

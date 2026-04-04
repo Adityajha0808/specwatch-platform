@@ -53,10 +53,22 @@ def api_add():
     if not display_name:
         return jsonify({"error": "Vendor display name required"}), 400
     
+    # optional fields
+    openapi_url = data.get('openapi_url')
+    trusted_domains = data.get('trusted_domains')
+
     try:
+        # Build script arguments
+        args = [sys.executable, 'scripts/add_vendor.py', name, display_name]
+        
+        if openapi_url:
+            args.extend(['--openapi-url', openapi_url])
+        if trusted_domains:
+            args.extend(['--trusted-domains', trusted_domains])
+
         # Call add_vendor.py script
         result = subprocess.run(
-            ["python", 'scripts/add_vendor.py', name, display_name or name],
+            args,
             capture_output=True,
             text=True,
             timeout=30,
@@ -64,7 +76,8 @@ def api_add():
         )
         
         if result.returncode == 0:
-            return jsonify({"success": True, "message": f"Vendor {name} added"})
+            message = f"Vendor {name} added successfully!\n\n{result.stdout}"
+            return jsonify({"success": True, "message": message})
         else:
             return jsonify({"error": result.stderr}), 500
     
@@ -206,7 +219,7 @@ def api_update_baseline(vendor):
     try:
         # Call update_baseline.py script
         result = subprocess.run(
-            ["python", 'scripts/update_baseline.py', vendor, timestamp],
+            [sys.executable, 'scripts/update_baseline.py', vendor, timestamp],
             capture_output=True,
             text=True,
             timeout=30,
