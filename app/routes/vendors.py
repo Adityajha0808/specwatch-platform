@@ -153,11 +153,14 @@ def api_remove(vendor):
             # Storage locations to clean
             locations = [
                 storage_base / "discovery" / f"{vendor}.json",
-                storage_base / "raw" / "raw_discovery",
-                storage_base / "raw" / "raw_specs",
                 storage_base / "normalized" / vendor,
                 storage_base / "diffs" / vendor,
-                storage_base / "classified_diffs" / vendor
+                storage_base / "classified_diffs" / vendor,
+                storage_base / "alerts" / f"{vendor}_alert_history.json"
+            ]
+            raw_paths = [
+                storage_base / "raw" / "raw_discovery",
+                storage_base / "raw" / "raw_specs"
             ]
             
             for location in locations:
@@ -170,12 +173,13 @@ def api_remove(vendor):
                         storage_cleaned.append(str(location))
             
             # Clean vendor-specific files in raw directories
-            for pattern in [f"{vendor}_*.json", f"{vendor}_openapi_*"]:
-                for path in [storage_base / "raw" / "raw_discovery", storage_base / "raw" / "raw_specs"]:
-                    if path.exists():
-                        for file in path.glob(pattern):
+            for raw_path in raw_paths:
+                if raw_path.exists():
+                    for file in raw_path.iterdir():
+                        if file.is_file() and file.name.startswith(f"{vendor}_"):
                             file.unlink()
                             storage_cleaned.append(str(file))
+        
         
         if removed_count == 0:
             return jsonify({"error": f"Vendor {vendor} not found in configuration"}), 404
