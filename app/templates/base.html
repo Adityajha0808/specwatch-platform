@@ -41,7 +41,13 @@
                 </ul>
                 
                 <!-- Pipeline controls -->
-                <div class="d-flex gap-2">
+                <div class="d-flex gap-2 align-items-center">
+                    <!-- Vendor selector -->
+                    <select class="form-select form-select-sm" id="pipelineVendorSelect" style="width: auto;">
+                        <option value="">All Vendors</option>
+                        <!-- Vendors will be populated by JavaScript -->
+                    </select>
+                    
                     <button class="btn btn-sm btn-outline-primary" onclick="runPipeline('discovery')">
                         <i class="bi bi-search"></i> Discovery
                     </button>

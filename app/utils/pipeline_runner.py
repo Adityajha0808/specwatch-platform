@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Pipeline runner utility.
 Runs SpecWatch pipelines in background threads from Flask UI.
@@ -48,71 +49,111 @@ class PipelineRunner:
         return self.status.copy()
     
     # Run discovery pipeline in background
-    def run_discovery(self):
+    def run_discovery(self, vendor: str = None):
 
         if self.is_running():
             raise RuntimeError("Pipeline already running")
         
         stages = ["Discovery"]
         command = [self.python_cmd, "-m", "pipelines.discovery_pipeline"]
+
+        if vendor:
+            command.extend(["--vendor", vendor])
+            stages[0] = f"Discovery ({vendor})"
         
         self._run_pipeline_thread(command, stages, "discovery")
     
-    # Run analysis pipeline (ingestion → classification) in background
-    def run_analysis(self):
+    # Run ingestion pipeline in background
+    def run_ingestion(self, vendor: str = None):
 
         if self.is_running():
             raise RuntimeError("Pipeline already running")
         
-        self._run_analysis_sequence()
+        stages = ["Ingestion"]
+        command = [self.python_cmd, "-m", "pipelines.ingestion_pipeline"]
+        
+        if vendor:
+            command.extend(["--vendor", vendor])
+            stages[0] = f"Ingestion ({vendor})"
+        
+        self._run_pipeline_thread(command, stages, "ingestion")
+
+    # Run analysis pipeline (ingestion → classification) in background
+    def run_analysis(self, vendor: str = None):
+
+        if self.is_running():
+            raise RuntimeError("Pipeline already running")
+        
+        self._run_analysis_sequence(vendor)
     
     # Run full pipeline (all stages) in background
-    def run_full_pipeline(self):
+    def run_full_pipeline(self, vendor: str = None):
 
         if self.is_running():
             raise RuntimeError("Pipeline already running")
         
-        self._run_full_sequence()
+        self._run_full_sequence(vendor=vendor)
     
     # Run alerting pipeline in background
-    def run_alerting(self):
+    def run_alerting(self, vendor: str = None):
 
         if self.is_running():
             raise RuntimeError("Pipeline already running")
         
         command = [self.python_cmd, "-m", "pipelines.alerting_pipeline"]
         stages = ["Alerting"]
+
+        if vendor:
+            command.extend(["--vendor", vendor])
+            stages[0] = f"Alerting ({vendor})"
         
         self._run_pipeline_thread(command, stages, "alerting")
     
     # Run all analysis pipelines in sequence
-    def _run_analysis_sequence(self):
+    def _run_analysis_sequence(self, vendor: str = None):
 
         def run():
-            self._update_status(running=True, progress=0, message="Starting analysis...")
+            vendor_text = f" for {vendor}" if vendor else " for all vendors"
+            self._update_status(running=True, progress=0, message="Starting analysis {vendor_text}...")
             
             try:
                 # Ingestion (20%)
-                self._update_status(current_stage="Ingestion", progress=20, message="Fetching API specs...")
-                self._run_subprocess([self.python_cmd, "-m", "pipelines.ingestion_pipeline"], "Ingestion")
+                self._update_status(current_stage="Ingestion", progress=20, message=f"Fetching API specs {vendor_text}...")
+                cmd = [self.python_cmd, "-m", "pipelines.ingestion_pipeline"]
+
+                if vendor:
+                    cmd.extend(["--vendor", vendor])
+                self._run_subprocess(cmd, "Ingestion")
                 
                 # Normalization (40%)
-                self._update_status(current_stage="Normalization", progress=40, message="Normalizing schemas...")
-                self._run_subprocess([self.python_cmd, "-m", "pipelines.normalization_pipeline"], "Normalization")
+                self._update_status(current_stage="Normalization", progress=40, message=f"Normalizing schemas {vendor_text}...")
+                cmd = [self.python_cmd, "-m", "pipelines.normalization_pipeline"]
+
+                if vendor:
+                    cmd.extend(["--vendor", vendor])
+                self._run_subprocess(cmd, "Normalization")
                 
                 # Diff (60%)
-                self._update_status(current_stage="Diff", progress=60, message="Detecting changes...")
-                self._run_subprocess([self.python_cmd, "-m", "pipelines.diff_pipeline"], "Diff")
+                self._update_status(current_stage="Diff", progress=60, message=f"Detecting changes {vendor_text}...")
+                cmd = [self.python_cmd, "-m", "pipelines.diff_pipeline"]
+
+                if vendor:
+                    cmd.extend(["--vendor", vendor])
+                self._run_subprocess(cmd, "Diff")
                 
                 # Classification (80%)
-                self._update_status(current_stage="Classification", progress=80, message="Analyzing with LLM...")
-                self._run_subprocess([self.python_cmd, "-m", "pipelines.classification_pipeline"], "Classification")
+                self._update_status(current_stage="Classification", progress=80, message=f"Analyzing with LLM {vendor_text}...")
+                cmd = [self.python_cmd, "-m", "pipelines.classification_pipeline"]
+
+                if vendor:
+                    cmd.extend(["--vendor", vendor])
+                self._run_subprocess(cmd, "Classification")
                 
                 # Complete
                 self._update_status(
                     current_stage="Complete",
                     progress=100,
-                    message="Analysis pipeline completed successfully!",
+                    message=f"Analysis pipeline completed successfully {vendor_text}!",
                     result="success"
                 )
                 logger.info("Analysis pipeline sequence completed successfully")
@@ -132,7 +173,7 @@ class PipelineRunner:
         self.current_thread.start()
     
     # Run full pipeline via main.py
-    def _run_full_sequence(self):
+    def _run_full_sequence(self, vendor: str = None):
 
         def run():
             self._update_status(running=True, progress=0, message="Starting full pipeline...")
@@ -142,9 +183,14 @@ class PipelineRunner:
                 
                 logger.info(f"Executing: {self.python_cmd} main.py")
                 logger.info(f"Working directory: {Path.cwd()}")
+
+                cmd = [self.python_cmd, "main.py"]
+
+                if vendor:
+                    cmd.extend(["--vendors", vendor])
                 
                 result = subprocess.run(
-                    [self.python_cmd, "main.py"],
+                    cmd,
                     capture_output=True,
                     text=True,
                     timeout=300,

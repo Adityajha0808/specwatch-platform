@@ -18,9 +18,14 @@ def trigger_discovery():
     if runner.is_running():
         return jsonify({"error": "Pipeline already running"}), 409
     
+    # Get vendor from request body
+    data = request.get_json() or {}
+    vendor = data.get('vendor')
+    
     try:
-        runner.run_discovery()
-        return jsonify({"success": True, "message": "Discovery pipeline started"})
+        runner.run_discovery(vendor=vendor)
+        msg = f"Discovery pipeline started for {vendor}" if vendor else "Discovery pipeline started for all vendors"
+        return jsonify({"success": True, "message": msg})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -34,9 +39,14 @@ def trigger_analysis():
     if runner.is_running():
         return jsonify({"error": "Pipeline already running"}), 409
     
+    # Get vendor from request body
+    data = request.get_json() or {}
+    vendor = data.get('vendor')
+    
     try:
-        runner.run_analysis()
-        return jsonify({"success": True, "message": "Analysis pipeline started"})
+        runner.run_analysis(vendor=vendor)
+        msg = f"Analysis pipeline started for {vendor}" if vendor else "Analysis pipeline started for all vendors"
+        return jsonify({"success": True, "message": msg})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -50,9 +60,14 @@ def trigger_full():
     if runner.is_running():
         return jsonify({"error": "Pipeline already running"}), 409
     
+    # Get vendor from request body
+    data = request.get_json() or {}
+    vendor = data.get('vendor')
+    
     try:
-        runner.run_full_pipeline()
-        return jsonify({"success": True, "message": "Full pipeline started"})
+        runner.run_full_pipeline(vendor=vendor)
+        msg = f"Full pipeline started for {vendor}" if vendor else "Full pipeline started for all vendors"
+        return jsonify({"success": True, "message": msg})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -66,9 +81,14 @@ def trigger_alerting():
     if runner.is_running():
         return jsonify({"error": "Pipeline already running"}), 409
     
+    # Get vendor from request body
+    data = request.get_json() or {}
+    vendor = data.get('vendor')
+    
     try:
-        runner.run_alerting()
-        return jsonify({"success": True, "message": "Alerting pipeline started"})
+        runner.run_alerting(vendor=vendor)
+        msg = f"Alerting pipeline started for {vendor}" if vendor else "Alerting pipeline started for all vendors"
+        return jsonify({"success": True, "message": msg})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Classification Pipeline - LLM-based classification of API changes by severity and impact.
 

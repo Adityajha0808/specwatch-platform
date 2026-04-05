@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Diff Engine Pipeline - Compare normalized snapshots to detect API changes.
 

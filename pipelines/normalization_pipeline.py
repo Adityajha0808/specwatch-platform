@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Normalization Pipeline - Convert raw OpenAPI specs to canonical format.
 

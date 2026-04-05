@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Runs discovery layer pipeline - Find API documentation sources using Tavily.
 
@@ -97,6 +98,8 @@ def run_discovery(vendors_input: List[str] = None) -> bool:
         store_latest_discovery(name, output)
 
     logger.info("Discovery pipeline completed")
+
+    return True
 
 
 # For Running discovery pipeline standalone: python3 -m pipelines.discovery_pipeline

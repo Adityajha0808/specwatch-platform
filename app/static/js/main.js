@@ -15,28 +15,70 @@ document.addEventListener('DOMContentLoaded', function() {
             keyboard: false
         });
     }
+    
+    // Populate vendor dropdown
+    populateVendorDropdown();
 });
 
 
 /**
+ * Populate vendor dropdown for pipeline selection
+ */
+function populateVendorDropdown() {
+    const dropdown = document.getElementById('pipelineVendorSelect');
+    if (!dropdown) return;
+    
+    fetch('/vendors/api/list')
+        .then(response => response.json())
+        .then(vendors => {
+            // Keep "All Vendors" option
+            // Add vendor options
+            vendors.forEach(vendor => {
+                const option = document.createElement('option');
+                option.value = vendor.name;
+                option.textContent = vendor.display_name || vendor.name;
+                dropdown.appendChild(option);
+            });
+        })
+        .catch(error => {
+            console.error('Error loading vendors:', error);
+        });
+}
+
+
+/**
  * Run a pipeline from the UI
- * @param {string} type - Pipeline type: 'discovery', 'analysis', or 'full'
+ * @param {string} type - Pipeline type: 'discovery', 'analysis', 'alerting', or 'full'
  */
 function runPipeline(type) {
+    // Get selected vendor
+    const vendorSelect = document.getElementById('pipelineVendorSelect');
+    const selectedVendor = vendorSelect ? vendorSelect.value : '';
+    
+    // Build display message
+    const vendorText = selectedVendor ? ` for ${selectedVendor}` : ' for all vendors';
+    
     // Show modal
     if (pipelineModal) {
         pipelineModal.show();
     }
     
     // Reset progress
-    updatePipelineProgress(0, 'Starting', `Initiating ${type} pipeline...`);
+    updatePipelineProgress(0, 'Starting', `Initiating ${type} pipeline ${vendorText}...`);
+    
+    // Build request body
+    const requestBody = {};
+    if (selectedVendor) {
+        requestBody.vendor = selectedVendor;
+    }
     
     // Trigger pipeline
     fetch(`/api/pipelines/${type}`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify(requestBody)
     })
     .then(response => response.json())
     .then(data => {

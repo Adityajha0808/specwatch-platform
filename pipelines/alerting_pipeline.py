@@ -290,6 +290,14 @@ class AlertingPipeline:
             return []
 
 
+# To run alerting as part of full pipeline from UI/terminal
+def run_alerting(vendors=None, test_mode=False):
+    pipeline = AlertingPipeline(
+        vendors_input=vendors,
+        test_mode=test_mode
+    )
+    return pipeline.run()
+
 # Main entry point for alerting pipeline
 # Usage:
 #   python3 -m pipelines.alerting_pipeline              # Production mode

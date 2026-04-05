@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Runs ingestion layer pipeline - Get raw OpenAPI spec from discovered sources.
 
