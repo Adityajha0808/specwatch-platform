@@ -1,0 +1,257 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://specwatch.internal/schemas/diff_schema.json",
+  "title": "SpecWatch Diff Schema",
+  "description": "Structural differences between two API snapshots (baseline vs latest)",
+  "type": "object",
+  "required": ["vendor", "baseline_version", "latest_version", "compared_at", "has_changes", "summary"],
+  "properties": {
+    "vendor": {
+      "type": "string",
+      "description": "Vendor identifier",
+      "examples": ["stripe", "twilio", "openai"]
+    },
+    "baseline_version": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of baseline snapshot",
+      "examples": ["2026-03-20T22:51:37.778782Z"]
+    },
+    "latest_version": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of latest snapshot",
+      "examples": ["2026-03-29T20:27:50.656220Z"]
+    },
+    "compared_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp when diff was computed",
+      "examples": ["2026-03-30T10:00:00Z"]
+    },
+    "has_changes": {
+      "type": "boolean",
+      "description": "Whether any changes were detected"
+    },
+    "summary": {
+      "type": "object",
+      "description": "Aggregate statistics of changes",
+      "required": [
+        "endpoints_added",
+        "endpoints_removed",
+        "endpoints_modified",
+        "endpoints_deprecated",
+        "parameters_added",
+        "parameters_removed",
+        "parameters_modified",
+        "metadata_changes"
+      ],
+      "properties": {
+        "endpoints_added": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of new endpoints"
+        },
+        "endpoints_removed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of removed endpoints"
+        },
+        "endpoints_modified": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of modified endpoints"
+        },
+        "endpoints_deprecated": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of newly deprecated endpoints"
+        },
+        "parameters_added": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total parameters added across all endpoints"
+        },
+        "parameters_removed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total parameters removed across all endpoints"
+        },
+        "parameters_modified": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total parameters modified across all endpoints"
+        },
+        "metadata_changes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of metadata-level changes (base_url, etc.)"
+        }
+      }
+    },
+    "metadata_changes": {
+      "type": "array",
+      "description": "List of metadata-level changes (base_url, OpenAPI version, etc.)",
+      "items": {
+        "type": "object",
+        "required": ["field_name", "old_value", "new_value"],
+        "properties": {
+          "field_name": {
+            "type": "string",
+            "description": "Name of changed metadata field",
+            "examples": ["base_url", "openapi_version"]
+          },
+          "old_value": {
+            "description": "Previous value"
+          },
+          "new_value": {
+            "description": "New value"
+          }
+        }
+      }
+    },
+    "endpoint_changes": {
+      "type": "array",
+      "description": "List of endpoint-level changes",
+      "items": {
+        "type": "object",
+        "required": ["change_type", "endpoint_id", "path", "method"],
+        "properties": {
+          "change_type": {
+            "type": "string",
+            "enum": ["endpoint_added", "endpoint_removed", "endpoint_modified", "endpoint_deprecated"],
+            "description": "Type of change"
+          },
+          "endpoint_id": {
+            "type": "string",
+            "pattern": "^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS):.+$",
+            "description": "Unique endpoint identifier",
+            "examples": ["POST:/v1/customers", "GET:/v1/charges/{id}"]
+          },
+          "path": {
+            "type": "string",
+            "description": "Endpoint path",
+            "examples": ["/v1/customers", "/v1/charges/{id}"]
+          },
+          "method": {
+            "type": "string",
+            "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"],
+            "description": "HTTP method"
+          },
+          "field_changes": {
+            "type": "array",
+            "description": "Field-level changes within endpoint (summary, deprecated flag, etc.)",
+            "items": {
+              "type": "object",
+              "required": ["field_name", "old_value", "new_value"],
+              "properties": {
+                "field_name": {
+                  "type": "string",
+                  "description": "Name of changed field",
+                  "examples": ["summary", "deprecated", "auth_required"]
+                },
+                "old_value": {
+                  "description": "Previous value"
+                },
+                "new_value": {
+                  "description": "New value"
+                }
+              }
+            }
+          },
+          "parameter_changes": {
+            "type": "array",
+            "description": "Parameter-level changes within endpoint",
+            "items": {
+              "type": "object",
+              "required": ["change_type", "parameter_name", "parameter_location"],
+              "properties": {
+                "change_type": {
+                  "type": "string",
+                  "enum": ["parameter_added", "parameter_removed", "parameter_type_changed", "parameter_required_changed"],
+                  "description": "Type of parameter change"
+                },
+                "parameter_name": {
+                  "type": "string",
+                  "description": "Parameter name",
+                  "examples": ["email", "limit", "customer_id"]
+                },
+                "parameter_location": {
+                  "type": "string",
+                  "enum": ["path", "query", "header", "body"],
+                  "description": "Where parameter is passed"
+                },
+                "old_type": {
+                  "type": "string",
+                  "description": "Previous data type (for type_changed)"
+                },
+                "new_type": {
+                  "type": "string",
+                  "description": "New data type (for type_changed)"
+                },
+                "old_required": {
+                  "type": "boolean",
+                  "description": "Previous required status (for required_changed)"
+                },
+                "new_required": {
+                  "type": "boolean",
+                  "description": "New required status (for required_changed)"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "vendor": "stripe",
+      "baseline_version": "2026-03-20T22:51:37.778782Z",
+      "latest_version": "2026-03-29T20:27:50.656220Z",
+      "compared_at": "2026-03-30T10:00:00Z",
+      "has_changes": true,
+      "summary": {
+        "endpoints_added": 0,
+        "endpoints_removed": 0,
+        "endpoints_modified": 13,
+        "endpoints_deprecated": 0,
+        "parameters_added": 0,
+        "parameters_removed": 1,
+        "parameters_modified": 0,
+        "metadata_changes": 0
+      },
+      "metadata_changes": [],
+      "endpoint_changes": [
+        {
+          "change_type": "endpoint_modified",
+          "endpoint_id": "GET:/v2/core/accounts",
+          "path": "/v2/core/accounts",
+          "method": "GET",
+          "field_changes": [
+            {
+              "field_name": "summary",
+              "old_value": "List connected accounts",
+              "new_value": "Returns a list of connected accounts"
+            }
+          ],
+          "parameter_changes": []
+        },
+        {
+          "change_type": "endpoint_modified",
+          "endpoint_id": "POST:/v1/customers",
+          "path": "/v1/customers",
+          "method": "POST",
+          "field_changes": [],
+          "parameter_changes": [
+            {
+              "change_type": "parameter_removed",
+              "parameter_name": "description",
+              "parameter_location": "body"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

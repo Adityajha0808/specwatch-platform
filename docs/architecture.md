@@ -131,7 +131,11 @@ specwatch-platform/
 │   ├── update_baseline.py
 │   └── list_versions.py
 ├── schemas/                # JSON schemas
-│   └── api_schema.json
+│   └── api_schema.json           # Canonical API structure
+│   └── alert_schema.json           # Multi-channel notifications
+│   └── classification_schema.json         # LLM severity analysis  
+│   └── diff_schema.json           # Change detection results
+│   └── discovery_schema.json           # Source URL discovery
 ├── main.py                 # Pipeline entry point
 ├── app.py                  # Dashboard entry point
 ├── requirements.txt

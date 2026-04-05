@@ -1,0 +1,345 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://specwatch.internal/schemas/classification_schema.json",
+  "title": "SpecWatch Classification Schema",
+  "description": "LLM-based severity classification of API changes",
+  "type": "object",
+  "required": [
+    "vendor",
+    "baseline_version",
+    "latest_version",
+    "classified_at",
+    "has_breaking_changes",
+    "has_deprecations",
+    "requires_immediate_action",
+    "classification_summary",
+    "classified_changes"
+  ],
+  "properties": {
+    "vendor": {
+      "type": "string",
+      "description": "Vendor identifier",
+      "examples": ["stripe", "twilio", "openai"]
+    },
+    "baseline_version": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of baseline snapshot",
+      "examples": ["2026-03-20T22:51:37.778782Z"]
+    },
+    "latest_version": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of latest snapshot",
+      "examples": ["2026-03-29T20:27:50.656220Z"]
+    },
+    "classified_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp when classification occurred",
+      "examples": ["2026-03-30T12:00:00Z"]
+    },
+    "has_breaking_changes": {
+      "type": "boolean",
+      "description": "Whether any breaking changes detected"
+    },
+    "has_deprecations": {
+      "type": "boolean",
+      "description": "Whether any deprecations detected"
+    },
+    "requires_immediate_action": {
+      "type": "boolean",
+      "description": "Whether breaking changes require immediate response"
+    },
+    "classification_summary": {
+      "type": "object",
+      "description": "Aggregate statistics of classified changes",
+      "required": [
+        "total_changes",
+        "breaking_changes",
+        "deprecations",
+        "additive_changes",
+        "minor_changes"
+      ],
+      "properties": {
+        "total_changes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of changes classified"
+        },
+        "breaking_changes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of breaking changes (existing clients will fail)"
+        },
+        "deprecations": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of deprecations (works now, will break in future)"
+        },
+        "additive_changes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of additive changes (new features, backward compatible)"
+        },
+        "minor_changes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of minor changes (documentation/metadata only)"
+        }
+      }
+    },
+    "classified_changes": {
+      "type": "array",
+      "description": "List of classified changes with LLM analysis",
+      "items": {
+        "type": "object",
+        "required": [
+          "change_type",
+          "endpoint_id",
+          "method",
+          "path",
+          "classification"
+        ],
+        "properties": {
+          "change_type": {
+            "type": "string",
+            "enum": [
+              "endpoint_added",
+              "endpoint_removed",
+              "endpoint_modified",
+              "endpoint_deprecated",
+              "parameter_added",
+              "parameter_removed",
+              "parameter_type_changed",
+              "parameter_required_changed"
+            ],
+            "description": "Type of change from diff"
+          },
+          "endpoint_id": {
+            "type": "string",
+            "pattern": "^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS):.+$",
+            "description": "Unique endpoint identifier",
+            "examples": ["POST:/v1/customers", "DELETE:/v1/customers/{id}"]
+          },
+          "method": {
+            "type": "string",
+            "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"],
+            "description": "HTTP method"
+          },
+          "path": {
+            "type": "string",
+            "description": "Endpoint path",
+            "examples": ["/v1/customers", "/v1/charges/{id}"]
+          },
+          "parameter_name": {
+            "type": "string",
+            "description": "Parameter name (if parameter-level change)",
+            "examples": ["email", "amount", "customer_id"]
+          },
+          "classification": {
+            "type": "object",
+            "description": "LLM classification results",
+            "required": [
+              "severity",
+              "confidence",
+              "reasoning",
+              "recommended_action"
+            ],
+            "properties": {
+              "severity": {
+                "type": "string",
+                "enum": ["breaking", "deprecation", "additive", "minor"],
+                "description": "Severity classification from LLM"
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0.0,
+                "maximum": 1.0,
+                "description": "LLM confidence score (0.0-1.0)",
+                "examples": [0.98, 0.65, 0.92]
+              },
+              "reasoning": {
+                "type": "string",
+                "description": "Natural language explanation from LLM",
+                "examples": [
+                  "Summary text updated for clarity, no functional changes to endpoint behavior",
+                  "Required parameter removed will cause validation errors in existing clients",
+                  "Parameter type changed from integer to string is breaking if strict validation used"
+                ]
+              },
+              "recommended_action": {
+                "type": "string",
+                "enum": [
+                  "immediate_fix_required",
+                  "plan_migration",
+                  "test_before_deploy",
+                  "update_documentation",
+                  "no_action_required"
+                ],
+                "description": "Recommended action based on severity"
+              },
+              "migration_path": {
+                "type": ["string", "null"],
+                "description": "Steps to migrate (for breaking/deprecation changes)",
+                "examples": [
+                  "Update stripe-python SDK to v5.0+",
+                  "Replace 'source' parameter with 'payment_method'",
+                  null
+                ]
+              },
+              "estimated_impact": {
+                "type": "string",
+                "enum": ["critical", "high", "medium", "low"],
+                "description": "Estimated impact level"
+              },
+              "affected_operations": {
+                "type": "array",
+                "description": "List of affected operations (for context)",
+                "items": {
+                  "type": "string",
+                  "examples": ["POST /v1/customers", "GET /v1/customers/{id}"]
+                }
+              }
+            }
+          },
+          "field_changes": {
+            "type": "array",
+            "description": "Field-level changes (for endpoint_modified)",
+            "items": {
+              "type": "object",
+              "required": ["field_name", "old_value", "new_value"],
+              "properties": {
+                "field_name": {
+                  "type": "string",
+                  "examples": ["summary", "deprecated", "auth_required"]
+                },
+                "old_value": {},
+                "new_value": {}
+              }
+            }
+          },
+          "parameter_details": {
+            "type": "object",
+            "description": "Parameter change details (for parameter-level changes)",
+            "properties": {
+              "location": {
+                "type": "string",
+                "enum": ["path", "query", "header", "body"]
+              },
+              "old_type": {
+                "type": "string"
+              },
+              "new_type": {
+                "type": "string"
+              },
+              "old_required": {
+                "type": "boolean"
+              },
+              "new_required": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    },
+    "llm_metadata": {
+      "type": "object",
+      "description": "Metadata about LLM classification process",
+      "properties": {
+        "model": {
+          "type": "string",
+          "description": "LLM model used for classification",
+          "examples": ["openai/gpt-oss-120b", "claude-sonnet-4.5"]
+        },
+        "temperature": {
+          "type": "number",
+          "description": "Temperature setting used",
+          "examples": [0.3, 0.0]
+        },
+        "total_tokens": {
+          "type": "integer",
+          "description": "Total tokens consumed (input + output)"
+        },
+        "classification_duration_ms": {
+          "type": "integer",
+          "description": "Time taken for classification in milliseconds"
+        },
+        "fallback_used": {
+          "type": "boolean",
+          "description": "Whether heuristic fallback was used (LLM failed)"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "vendor": "stripe",
+      "baseline_version": "2026-03-20T22:51:37.778782Z",
+      "latest_version": "2026-03-29T20:27:50.656220Z",
+      "classified_at": "2026-03-30T12:00:00Z",
+      "has_breaking_changes": false,
+      "has_deprecations": false,
+      "requires_immediate_action": false,
+      "classification_summary": {
+        "total_changes": 13,
+        "breaking_changes": 0,
+        "deprecations": 0,
+        "additive_changes": 0,
+        "minor_changes": 13
+      },
+      "classified_changes": [
+        {
+          "change_type": "endpoint_modified",
+          "endpoint_id": "GET:/v2/core/accounts",
+          "method": "GET",
+          "path": "/v2/core/accounts",
+          "classification": {
+            "severity": "minor",
+            "confidence": 0.98,
+            "reasoning": "Summary text updated for clarity, no functional changes to endpoint behavior",
+            "recommended_action": "no_action_required",
+            "migration_path": null,
+            "estimated_impact": "low",
+            "affected_operations": ["GET /v2/core/accounts"]
+          },
+          "field_changes": [
+            {
+              "field_name": "summary",
+              "old_value": "List connected accounts",
+              "new_value": "Returns a list of connected accounts"
+            }
+          ]
+        },
+        {
+          "change_type": "parameter_removed",
+          "endpoint_id": "POST:/v1/customers",
+          "method": "POST",
+          "path": "/v1/customers",
+          "parameter_name": "source",
+          "classification": {
+            "severity": "breaking",
+            "confidence": 0.99,
+            "reasoning": "Required parameter 'source' removed will cause validation errors in existing clients",
+            "recommended_action": "immediate_fix_required",
+            "migration_path": "Replace 'source' parameter with 'payment_method'. Update stripe-python SDK to v5.0+",
+            "estimated_impact": "critical",
+            "affected_operations": ["POST /v1/customers"]
+          },
+          "parameter_details": {
+            "location": "body",
+            "old_required": true
+          }
+        }
+      ],
+      "llm_metadata": {
+        "model": "openai/gpt-oss-120b",
+        "temperature": 0.3,
+        "total_tokens": 8572,
+        "classification_duration_ms": 1850,
+        "fallback_used": false
+      }
+    }
+  ]
+}
