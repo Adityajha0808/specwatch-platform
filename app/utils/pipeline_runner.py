@@ -10,6 +10,7 @@ import subprocess
 import threading
 import logging
 import sys
+import os
 from pathlib import Path
 from typing import Optional, Dict, Any
 from datetime import datetime, UTC
@@ -274,12 +275,17 @@ class PipelineRunner:
             logger.info(f"Working directory: {Path.cwd()}")
             
             try:
+                # Set PYTHONUNBUFFERED for real-time log output
+                env = os.environ.copy()
+                env['PYTHONUNBUFFERED'] = '1'
+
                 result = subprocess.run(
                     command,
                     capture_output=True,
                     text=True,
                     timeout=300,
-                    cwd=Path.cwd()
+                    cwd=Path.cwd(),
+                    env=env  # Pass unbuffered environment
                 )
                 
                 # Log output for debugging

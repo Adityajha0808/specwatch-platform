@@ -110,8 +110,8 @@ function startPipelineStatusPolling() {
         clearInterval(pipelineCheckInterval);
     }
     
-    // Poll every 500ms
-    pipelineCheckInterval = setInterval(checkPipelineStatus, 500);
+    // Poll every 1s
+    pipelineCheckInterval = setInterval(checkPipelineStatus, 1000);
 }
 
 
