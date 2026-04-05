@@ -32,6 +32,19 @@ def load_vendors():
     return data["vendors"]
 
 
+def load_single_vendor_detail(vendors_input):
+    data = load_json(VENDORS_FILE)
+    vendor_set = set(vendors_input)
+
+    filtered_vendors = [
+        vendor
+        for vendor in data["vendors"]
+        if vendor["name"] in vendor_set
+    ]
+
+    return filtered_vendors
+
+
 def load_vendor_registry():
 
     return load_json(REGISTRY_FILE)["vendors"]

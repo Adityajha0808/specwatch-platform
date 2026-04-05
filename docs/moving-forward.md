@@ -1051,6 +1051,27 @@ The challenge is building an accurate dependency graph. We need to:
 
 My approach: Start with static analysis (grep for imports), then augment with runtime tracing (API call logs). Build confidence scores for each dependency link. Aim for 80% accuracy in impact scoring before alerting on it."
 
+### Question: "Is this an MCP server integration, or how would you evolve it toward MCP?"
+
+**Answer**:
+"Right now it’s not MCP-based — it’s a pipeline-oriented architecture with direct service adapters.
+
+Each stage talks to external systems directly: discovery uses search APIs, ingestion fetches GitHub/raw spec URLs, classification calls the LLM, and the dashboard triggers pipelines through subprocess execution.
+
+The reason it’s MCP-ready for the future is the way I separated responsibilities into clean modules like discovery, ingestion, diffing, classification, and alerting.
+Those boundaries map naturally to MCP tools.
+
+For example, instead of internal code directly calling the diff engine, an MCP server could expose tools like:
+
+resolve_openapi_spec
+compute_api_diff
+classify_breaking_changes
+trigger_pipeline_stage
+
+That would allow IDE copilots, internal AI agents, or developer assistants to query SpecWatch as a tool backend rather than through tightly coupled code paths.
+
+So the current system is direct integration by design for speed and control, but the architecture is intentionally modular enough to evolve into MCP-based agent tooling without major refactoring."
+
 ---
 
 ## Timeline Summary

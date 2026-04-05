@@ -27,8 +27,9 @@ logger = get_logger(__name__)
 class AlertingPipeline:
     
     # Initialize alerting pipeline
-    def __init__(self, test_mode: bool = False):
+    def __init__(self, vendors_input: bool = False, test_mode: bool = False):
 
+        self.vendors_input = vendors_input
         self.test_mode = test_mode
         self.github_alerter: Optional[GitHubAlerter] = None
         self.email_alerter: Optional[EmailAlerter] = None
@@ -92,6 +93,9 @@ class AlertingPipeline:
         if not vendors:
             logger.info("No vendors found with classified diffs")
             return {"total": 0, "sent": 0, "failed": 0}
+        
+        if self.vendors_input:
+            vendors = self.vendors_input
         
         logger.info(f"Processing alerts for {len(vendors)} vendors")
         
@@ -294,6 +298,11 @@ def main():
 
     parser = argparse.ArgumentParser(description="SpecWatch Alerting Pipeline")
     parser.add_argument(
+        "--vendors",
+        nargs="+",
+        help="Specific vendors to alert (e.g., stripe). If not specified, alerts for all."
+    )
+    parser.add_argument(
         "--test",
         action="store_true",
         help="Run in test mode (use test fixtures instead of production data)"
@@ -301,7 +310,7 @@ def main():
     args = parser.parse_args()
     
     # Run pipeline
-    pipeline = AlertingPipeline(test_mode=args.test)
+    pipeline = AlertingPipeline(vendors_input=args.vendors, test_mode=args.test)
     results = pipeline.run()
     
     # Log summary

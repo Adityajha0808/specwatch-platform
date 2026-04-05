@@ -1,10 +1,21 @@
-# Run discovery layer pipeline
-# Added logging, Query result ranking, url validation and Vendor Onboarding Script
+"""
+Runs discovery layer pipeline - Find API documentation sources using Tavily.
+
+Supports vendor-specific execution:
+    python3 -m pipelines.discovery_pipeline                  # All vendors
+    python3 -m pipelines.discovery_pipeline --vendor stripe  # Specific vendor
+"""
+
+import os
+import sys
+import argparse
+from typing import List, Tuple
 
 from specwatch.discovery.tavily_client import tavily_search
 from specwatch.discovery.source_resolver import resolve_best_source
 from specwatch.config.config_loader import (
     load_vendors,
+    load_single_vendor_detail,
     load_vendor_registry,
     load_queries
 )
@@ -19,7 +30,7 @@ from datetime import datetime, UTC
 logger = get_logger(__name__)
 
 
-def run_discovery():
+def run_discovery(vendors_input: List[str] = None) -> bool:
 
     vendors = load_vendors()
     registry = load_vendor_registry()
@@ -28,6 +39,11 @@ def run_discovery():
     validate_configs(vendors, registry, query_templates)
 
     logger.info("Starting discovery pipeline")
+
+    # Pick if vendor is specified
+    if vendors_input:
+        vendors = load_single_vendor_detail(vendors_input)
+
 
     for vendor in vendors:
 
@@ -85,4 +101,28 @@ def run_discovery():
 
 # For Running discovery pipeline standalone: python3 -m pipelines.discovery_pipeline
 if __name__ == "__main__":
-    run_discovery()
+    
+    parser = argparse.ArgumentParser(description="Run discovery pipeline")
+    parser.add_argument(
+        "--vendors",
+        nargs="+",
+        help="Specific vendors to discover (e.g., stripe). If not specified, discover for all vendors."
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug logging"
+    )
+    
+    args = parser.parse_args()
+    
+    # Enable debug logging if requested
+    if args.debug:
+        os.environ['LOG_LEVEL'] = 'DEBUG'
+    
+    logger.info("Discovery pipeline cli started")
+    
+    success = run_discovery(vendors_input=args.vendors)
+    
+    logger.info("Discovery pipeline cli complete")
+    sys.exit(0 if success else 1)

@@ -1,5 +1,16 @@
+"""
+Runs ingestion layer pipeline - Get raw OpenAPI spec from discovered sources.
+
+Supports vendor-specific execution:
+    python3 -m pipelines.ingestion_pipeline                  # All vendors
+    python3 -m pipelines.ingestion_pipeline --vendor stripe  # Specific vendor
+"""
+
 import os
+import sys
 import json
+import argparse
+from typing import List, Tuple
 
 from specwatch.ingestion.openapi_resolver import OpenAPIResolver
 from specwatch.ingestion.spec_fetcher import fetch_spec
@@ -36,7 +47,7 @@ def load_discovery_files():
 
 
 # Extract discovery sources, fetch and store the spec
-def run_ingestion():
+def run_ingestion(vendors_input: List[str] = None) -> bool:
 
     logger.info("Starting ingestion pipeline")
 
@@ -45,6 +56,9 @@ def run_ingestion():
     if not discovery_files:
         logger.warning("No discovery files found")
         return
+
+    # Filters out vendors for specific vendor runs
+    vendor_filter = set(v.lower() for v in vendors_input) if vendors_input else None
 
     vendors_processed = 0
 
@@ -60,13 +74,22 @@ def run_ingestion():
         vendor = data.get("vendor")
         sources = data.get("sources", {})
 
+        if not vendor:
+            logger.warning(f"Vendor missing in discovery file: {file_path}")
+            continue
+
+        vendor = vendor.lower()
+
+        # Vendor-specific filtering
+        if vendor_filter and vendor not in vendor_filter:
+            logger.debug(f"Skipping vendor {vendor} (not requested)")
+            continue
+
         openapi_source = sources.get("openapi")
 
         if not openapi_source:
             logger.warning(f"No OpenAPI source for {vendor}")
             continue
-
-        vendors_processed += 1
 
         logger.info(f"Processing OpenAPI source for {vendor}")
         logger.info(f"Resolving OpenAPI spec for {vendor}")
@@ -85,11 +108,41 @@ def run_ingestion():
             logger.warning(f"Failed to fetch spec for {vendor}")
             continue
 
-        store_spec(vendor, spec_content)
+        stored_file= store_spec(vendor, spec_content)
+
+        if stored_file:
+            vendors_processed += 1
+        
 
     logger.info(f"Ingestion pipeline completed. Vendors Processed = {vendors_processed}.")
+
+    return True
 
 
 # For Running ingestion pipeline standalone: python3 -m pipelines.ingestion_pipeline
 if __name__ == "__main__":
-    run_ingestion()
+    
+    parser = argparse.ArgumentParser(description="Run ingestion pipeline")
+    parser.add_argument(
+        "--vendors",
+        nargs="+",
+        help="Specific vendors to discover (e.g., stripe). If not specified, discover for all vendors."
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug logging"
+    )
+    
+    args = parser.parse_args()
+    
+    # Enable debug logging if requested
+    if args.debug:
+        os.environ['LOG_LEVEL'] = 'DEBUG'
+    
+    logger.info("Ingestion pipeline cli started")
+    
+    success = run_ingestion(vendors_input=args.vendors)
+    
+    logger.info("Ingestion pipeline cli complete")
+    sys.exit(0 if success else 1)
