@@ -106,9 +106,49 @@ SLACK_ENABLED=false
 # Add Stripe as a monitored vendor
 python3 scripts/add_vendor.py stripe "Stripe"
 
+# Full addition with all parameters
+python3 scripts/add_vendor.py stripe "Stripe" \
+  --openapi-url "https://github.com/stripe/openapi" \
+  --trusted-domains "stripe.com,github.com" \
+
 # Verify configuration
 cat specwatch/config/json/vendors.json
 ```
+
+**CLI Parameters**:
+- `<vendor_name>` (required) - Lowercase identifier (e.g., `stripe`, `twilio`)
+- `<display_name>` (required) - Human-readable name (e.g., `"Stripe"`, `"Twilio"`)
+- `--openapi-url` (optional) - URL to OpenAPI specification
+- `--trusted-domains` (optional) - Comma-separated domains (e.g., `stripe.com,github.com`)
+
+**What it does**:
+1. ✅ Updates `vendors.json` with vendor metadata
+2. ✅ Updates `vendor_registry.json` with trusted domains
+3. ✅ Updates `vendor_specs.json` with spec URLs (or leaves blank for auto-discovery)
+4. ✅ Updates `discovery_queries.json` with search templates
+
+**Auto-discovery fallback**: If you don't provide URLs, SpecWatch will use Tavily search to find them automatically.
+
+### Remove a Vendor
+
+```bash
+# Remove vendor (keep storage)
+python3 scripts/remove_vendor.py stripe
+
+# Remove vendor + delete all storage
+python3 scripts/remove_vendor.py stripe --clean-storage
+```
+
+**With --clean-storage**:
+- Removes from all config files
+- Deletes `storage/discovery/{vendor}.json`
+- Deletes `storage/raw/raw_specs/{vendor}_*`
+- Deletes `storage/normalized/{vendor}/`
+- Deletes `storage/diffs/{vendor}/`
+- Deletes `storage/classified_diffs/{vendor}/`
+- Deletes `storage/alerts/{vendor}/`
+
+**Safety**: Two-step confirmation with file count reporting before deletion.
 
 ---
 
@@ -134,23 +174,54 @@ python3 main.py
 ### Run Individual Pipelines
 
 ```bash
-# Discovery only
+# Discovery only (all vendors)
 python3 -m pipelines.discovery_pipeline
 
-# Ingestion only
+# Discovery for specific vendor
+python3 -m pipelines.discovery_pipeline --vendor stripe
+
+# Ingestion only (all vendors)
 python3 -m pipelines.ingestion_pipeline
 
-# Normalization only
-python3 -m pipelines.normalization_pipeline
+# Ingestion for specific vendor
+python3 -m pipelines.ingestion_pipeline --vendor twilio
 
-# Diff only
-python3 -m pipelines.diff_pipeline
+# Normalization for specific vendor
+python3 -m pipelines.normalization_pipeline --vendor stripe
 
-# Classification only
-python3 -m pipelines.classification_pipeline
+# Diff for specific vendor
+python3 -m pipelines.diff_pipeline --vendor stripe
 
-# Alerting only
-python3 -m pipelines.alerting_pipeline
+# Classification for specific vendor
+python3 -m pipelines.classification_pipeline --vendor stripe
+
+# Alerting for specific vendor
+python3 -m pipelines.alerting_pipeline --vendor stripe
+```
+
+**Vendor-Specific Benefits**:
+- ⚡ **Faster**: 1 minute instead of 3 minutes for targeted runs
+- 🐛 **Debugging**: Isolate and test single problematic vendor
+- 🔍 **Development**: Test new vendor without affecting production vendors
+- 💰 **Cost**: Reduce API calls when only one vendor needs attention
+
+**Example Workflow**:
+```bash
+# 1. Stripe releases new API version
+# 2. Run targeted discovery
+python3 -m pipelines.discovery_pipeline --vendor stripe
+
+# 3. Run targeted analysis (4 sub-stages)
+python3 -m pipelines.ingestion_pipeline --vendor stripe
+python3 -m pipelines.normalization_pipeline --vendor stripe
+python3 -m pipelines.diff_pipeline --vendor stripe
+python3 -m pipelines.classification_pipeline --vendor stripe
+
+# 4. Check results before alerting
+cat storage/classified_diffs/stripe/classified_diff_*.json | jq
+
+# 5. Send alerts if needed
+python3 -m pipelines.alerting_pipeline --vendor stripe
 ```
 
 ### Test Mode (Alerting)
@@ -186,7 +257,7 @@ Open browser: **http://localhost:5000**
 
 **Vendor Management** (`/vendors`)
 - List all monitored vendors
-- Add new vendors
+- Add new vendors via UI modal (7-field form)
 - Remove vendors (with optional storage cleanup)
 - Update baseline versions
 
@@ -197,10 +268,36 @@ Open browser: **http://localhost:5000**
 - Version history
 
 **Pipeline Controls** (navbar)
+
+The navbar includes a **vendor dropdown** for targeted pipeline execution:
+
+**Usage**:
+1. **Select "All Vendors"** (default) - Runs pipeline for all configured vendors
+2. **Select specific vendor** (e.g., "Stripe") - Runs pipeline for only that vendor
+
+**Available Pipeline Buttons**:
 - **Discovery**: Find latest API sources
-- **Analysis**: Run ingestion → classification
+  - All vendors: ~60 seconds
+  - Single vendor: ~20 seconds
+- **Analysis**: Run ingestion → normalization → diff → classification
+  - All vendors: ~180 seconds
+  - Single vendor: ~60 seconds
 - **Alerting**: Send alerts for critical changes
-- **Full Pipeline**: Run all stages
+  - All vendors: ~5 seconds
+  - Single vendor: ~2 seconds
+- **Full Pipeline**: Run all stages (discovery through alerting)
+  - Currently runs for all vendors (no filtering)
+
+**Example Workflow**:
+```
+1. Open http://localhost:5000
+2. Select "stripe" from vendor dropdown
+3. Click "Discovery" button
+4. Modal shows: "Discovery (stripe): Starting..."
+5. Progress updates in real-time
+6. Completion: "Discovery complete for stripe"
+7. Page reloads with updated data
+```
 
 **Alert Preview**
 - Preview GitHub issue format
@@ -276,6 +373,10 @@ specwatch-platform/
 │   ├── add_vendor.py           # Add new vendor
 │   ├── remove_vendor.py        # Remove vendor
 │   └── update_baseline.py      # Set baseline version
+├── test/                       # Test infrastructure
+│   └── classified_output/      # Classified Test data
+│   └── diff_output/            # Diff Test data
+│   └── normalized_output/      # Normalized Test data
 ├── main.py                     # Pipeline entry point
 ├── app.py                      # Dashboard entry point
 ├── requirements.txt            # Dependencies
@@ -353,8 +454,57 @@ python3 -m pipelines.alerting_pipeline --test
 
 ### Run Unit Tests
 
+```bash
+# Run all tests
+pytest
+
+# Run specific test file
+pytest tests/test_diff_engine.py
+
+
+# Run with verbose output
+pytest -v
+
+# Or Run test_diff_engine directly
+- python3 -m scripts.test_diff_engine
 ```
-Run: python3 -m scripts.test_diff_engine
+
+---
+
+## 📊 Example Output
+
+### Discovery Pipeline
+```
+INFO | Starting discovery pipeline
+INFO | Running discovery for Stripe
+INFO | Running Tavily query: Stripe API documentation
+INFO | Stripe docs source resolved: https://docs.stripe.com/apis
+INFO | Running Tavily query: Stripe OpenAPI specification GitHub
+INFO | Stripe openapi source resolved: https://github.com/stripe/openapi
+INFO | Discovery pipeline completed
+```
+
+### Classification Pipeline
+```
+INFO | Classification pipeline started (PRODUCTION MODE)
+INFO | Classifying changes for stripe
+INFO | Classifying 13 changes for stripe
+INFO | Processing change 1/13
+INFO | Classifying change: endpoint_modified - DELETE:/v2/core/accounts/{account_id}/persons/{id}
+INFO | Classification complete: severity=minor, confidence=0.97
+...
+INFO | Classification complete for stripe: breaking=0, deprecations=0, additive=0, minor=13
+```
+
+### Alerting Pipeline
+```
+INFO | Alerting pipeline started (PRODUCTION MODE)
+INFO | Processing alerts for stripe
+INFO | Found 2 critical changes for stripe
+INFO | Sending alert via channels: ['github', 'email']
+INFO | GitHub alert sent: Issue created #42
+INFO | Email alert sent: Email sent to jhaaditya757@gmail.com
+INFO | Alerting complete: 2/2 alert(s) sent successfully
 ```
 
 ---
@@ -516,6 +666,26 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/services/xxx
 - Groq: Pay-per-token (very low cost)
 
 **Estimated monthly cost**: $0 (within free tiers)
+
+---
+
+## 📸 UI Screenshots
+
+Added the following screenshots:
+
+![Vendor Dropdown](docs/images/vendor_dropdown.png) 
+
+![Add Vendor Modal](docs/images/add_vendor_modal.png) 
+
+![Pipeline Progress Modal](docs/images/pipeline_progress_modal.png) 
+
+![Vendor Details Page](docs/images/vendor_details_page.png) 
+
+![Main Dashboard](docs/images/main_dashboard.png) 
+
+![Github Issue Example](docs/images/github_issue_example.png) 
+
+![Email Alert Example](docs/images/email_alert_example.png) 
 
 ---
 
