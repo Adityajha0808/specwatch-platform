@@ -373,10 +373,19 @@ specwatch-platform/
 │   ├── add_vendor.py           # Add new vendor
 │   ├── remove_vendor.py        # Remove vendor
 │   └── update_baseline.py      # Set baseline version
+│   └── list_versions.py        # List all normalized versions of snapshpot
+│   └── create_normalized_test_snapshots.py   # Create synthetic normalized test snapshots
+│   └── test_diff_engine.py     # Run diff engine unit tests
 ├── test/                       # Test infrastructure
 │   └── classified_output/      # Classified Test data
 │   └── diff_output/            # Diff Test data
 │   └── normalized_output/      # Normalized Test data
+├── schemas/                    # JSON schemas
+│   └── api_schema.json         # Canonical API structure
+│   └── alert_schema.json       # Multi-channel notifications
+│   └── classification_schema.json         # LLM severity analysis  
+│   └── diff_schema.json        # Change detection results
+│   └── discovery_schema.json   # Source URL discovery
 ├── main.py                     # Pipeline entry point
 ├── app.py                      # Dashboard entry point
 ├── requirements.txt            # Dependencies
