@@ -673,25 +673,32 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/services/xxx
 
 Added the following screenshots:
 
-1. Vendor Dropdown
+1. Vendor Dropdown:
+
 ![Vendor Dropdown](docs/images/vendor_dropdown.png) 
 
-2. Add Vendor Modal
+2. Add Vendor Modal:
+
 ![Add Vendor Modal](docs/images/add_vendor_modal.png) 
 
-3. Pipeline Progress Modal
+3. Pipeline Progress Modal:
+
 ![Pipeline Progress Modal](docs/images/pipeline_progress_modal.png) 
 
-4. Vendor Details Page
+4. Vendor Details Page:
+
 ![Vendor Details Page](docs/images/vendor_details_page.png) 
 
-5. Main Dashboard
+5. Main Dashboard:
+
 ![Main Dashboard](docs/images/main_dashboard.png) 
 
-6. Github Issue Example
+6. Github Issue Example:
+
 ![Github Issue Example](docs/images/github_issue_example.png) 
 
-7. Email Alert Example
+7. Email Alert Example:
+
 ![Email Alert Example](docs/images/email_alert_example.png) 
 
 ---
