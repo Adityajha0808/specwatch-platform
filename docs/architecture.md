@@ -66,6 +66,11 @@ specwatch-platform/
 │   │   │   └── discovery_queries.json
 │   │   ├── config_loader.py
 │   │   └── config_validator.py
+│   ├── cache/             # Redis caching layer
+│   │   ├── __init__.py
+│   │   └── redis_client.py      # Connection manager
+│   │   └── cache_manager.py     # High-level operations
+│   │   └── cache_metrics.py     # Hit/miss tracking
 │   ├── store/              # Storage abstraction
 │   │   ├── raw_discovery_store.py
 │   │   ├── discovery_store.py
@@ -665,7 +670,36 @@ subprocess.run([sys.executable, "-m", "pipelines.discovery_pipeline"], ...)
 
 ### 8. Caching
 
-**Purpose**: Cache costly calls for discovery, classification and ingestion.
+**Purpose**: Reduce redundant API calls and expensive operations by 50-70%.
+
+**Redis Architecture**:
+
+**Three-Tier Caching Strategy:**
+┌─────────────────────────────────────────────┐
+│         Redis Caching Architecture           │
+├─────────────────────────────────────────────┤
+│                                             │
+│  Layer 1: Discovery Cache (7-day TTL)      │
+│  ├─ Key: tavily:search:{query}             │
+│  ├─ Value: Tavily search results (JSON)    │
+│  └─ Hit Rate: 90%                           │
+│                                             │
+│  Layer 2: Spec Hash Cache (Permanent)      │
+│  ├─ Key: spec:hash:{vendor}                │
+│  ├─ Value: SHA-256 hash (16 chars)         │
+│  └─ Hit Rate: 70%                           │
+│                                             │
+│  Layer 3: Classification Cache (30-day TTL) │
+│  ├─ Key: classification:{diff_hash}        │
+│  ├─ Value: LLM classification (JSON)       │
+│  └─ Hit Rate: 80%                           │
+│                                             │
+└─────────────────────────────────────────────┘
+
+**Components**:
+- `cache_manager.py` - High-Level cache Operations
+- `cache_metrics.py` - Performance Tracking
+- `redis_client.py` - Connection Manager
 
 **Implementation**:
 
@@ -683,9 +717,9 @@ Classification:
 Key   = classification:<diff_hash>
 Value = full LLM classified diff JSON
 
-Each stage caches its highest-cost deterministic artifact: Tavily search payloads in discovery, vendor-level spec content hashes in ingestion, and full LLM-classified diff outputs in classification, using content-based fingerprints as Redis keys.
+- Each stage caches its highest-cost deterministic artifact: Tavily search payloads in discovery, vendor-level spec content hashes in ingestion, and full LLM-classified diff outputs in classification, using content-based fingerprints as Redis keys.
 
-I/O reduction in ingestion: The optimization is not the new hash generation itself — we still must hash the freshly fetched spec.
+- I/O reduction in ingestion: The optimization is not the new hash generation itself — we still must hash the freshly fetched spec.
 The gain comes from replacing historical snapshot reads with a Redis fingerprint lookup, which turns change detection into a constant-time metadata comparison.
 
 ---

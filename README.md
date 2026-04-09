@@ -348,6 +348,7 @@ specwatch-platform/
 │   ├── classification/         # LLM analysis
 │   ├── alerting/               # Multi-channel alerts
 │   ├── config/                 # Configuration files
+│   ├── cache/                  # Redis Caching
 │   ├── store/                  # Storage layer
 │   └── utils/                  # Shared utilities
 ├── pipelines/                  # Pipeline orchestration
@@ -376,6 +377,8 @@ specwatch-platform/
 │   └── list_versions.py        # List all normalized versions of snapshpot
 │   └── create_normalized_test_snapshots.py   # Create synthetic normalized test snapshots
 │   └── test_diff_engine.py     # Run diff engine unit tests
+│   ├── warm_cache.py           # Pre populate cache
+│   ├── clear_cache.py          # Clear cache
 ├── test/                       # Test infrastructure
 │   └── classified_output/      # Classified Test data
 │   └── diff_output/            # Diff Test data
@@ -638,6 +641,13 @@ EMAIL_TO=receiver@gmail.com
 # Slack (optional)
 SLACK_ENABLED=false
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/xxx
+
+# Redis Configuration (optional but recommended)
+REDIS_ENABLED=true            # Enable caching
+REDIS_HOST=localhost         # Redis server hostname
+REDIS_PORT=6379              # Redis server port
+REDIS_DB=0                   # Redis database number
+
 ```
 
 ---
