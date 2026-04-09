@@ -1,9 +1,12 @@
 """
-LLM-based classifier for API changes to classify changes by severity and impact.
+LLM-based classifier for API changes.
+Classifies changes by severity and impact.
+Adds Redis caching to avoid repeated LLM calls for identical diffs.
 """
 
 import json
 import os
+import hashlib
 from typing import Dict, Any, Optional
 from datetime import datetime, UTC
 from dotenv import load_dotenv
@@ -11,6 +14,9 @@ from dotenv import load_dotenv
 from groq import Groq
 from specwatch.utils.logger import get_logger
 from specwatch.diff.diff_models import EndpointChange, APIDiff
+from specwatch.cache.cache_manager import CacheManager
+from specwatch.cache.cache_metrics import get_cache_metrics
+
 from .classification_models import (
     ChangeClassification,
     ClassifiedEndpointChange,
@@ -39,6 +45,10 @@ class ChangeClassifier:
         
         self.client = Groq(api_key=self.api_key)
         self.model = "openai/gpt-oss-120b"
+
+        # Cache support
+        self.cache = CacheManager()
+        self.metrics = get_cache_metrics()
     
     # Classify a single API change using LLM
     def classify_change(
@@ -86,7 +96,11 @@ class ChangeClassifier:
             messages=[
                 {
                     "role": "system",
-                    "content": "You are an API versioning expert. You analyze API changes and classify them by severity. You always respond with valid JSON only."
+                    "content": (
+                        "You are an API versioning expert. "
+                        "You analyze API changes and classify them by severity. "
+                        "You always respond with valid JSON only."
+                    )
                 },
                 {
                     "role": "user",
@@ -125,17 +139,45 @@ class ChangeClassifier:
         # Parse JSON
         try:
             result = json.loads(cleaned)
-            logger.debug(f"Successfully parsed classification JSON")
+            logger.debug("Successfully parsed classification JSON")
             return result
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse JSON response: {e}")
             logger.error(f"Response text: {cleaned[:500]}...")
             raise ValueError(f"Invalid JSON response from LLM: {e}")
+
+    # Deterministic cache key for whole diff
+    def _compute_diff_hash(self, diff: APIDiff) -> str:
+
+        diff_json = json.dumps(
+            diff.model_dump(),
+            sort_keys=True,
+            default=str
+        )
+        return hashlib.sha256(diff_json.encode()).hexdigest()[:16]
     
-    # Classify all changes in a diff
+    # Classify all changes in a diff with caching
     def classify_diff(self, diff: APIDiff) -> ClassifiedAPIDiff:
 
-        logger.info(f"Classifying diff for {diff.vendor}: {len(diff.endpoint_changes)} changes")
+
+        logger.info(
+            f"Classifying diff for {diff.vendor}: "
+            f"{len(diff.endpoint_changes)} changes"
+        )
+
+        # Cache lookup
+        diff_hash = self._compute_diff_hash(diff)
+
+        cached = self.cache.get_classification(diff_hash)
+        if cached:
+            self.metrics.record_classification_hit()
+            logger.info(f"✓ Classification cache HIT for {diff.vendor}")
+            return ClassifiedAPIDiff(**json.loads(cached))
+
+        self.metrics.record_classification_miss()
+        logger.info(
+            f"✗ Classification cache MISS for {diff.vendor}, calling LLM..."
+        )
         
         classified_changes = []
         
@@ -176,6 +218,13 @@ class ChangeClassifier:
             has_deprecations=summary.deprecations > 0,
             requires_immediate_action=summary.critical_alerts_needed > 0
         )
+
+        # Cache final result for 30 days
+        self.cache.set_classification(
+            diff_hash,
+            json.dumps(classified_diff.model_dump(), default=str),
+            ttl=2592000
+        )
         
         logger.info(
             f"Classification complete for {diff.vendor}: "
@@ -191,26 +240,31 @@ class ChangeClassifier:
         self,
         classified_changes: list
     ) -> ClassificationSummary:
+        """Build classification summary from classified changes."""
         
         summary = ClassificationSummary(total_changes=len(classified_changes))
         
         for change in classified_changes:
             # Count by severity
-            if change.classification.severity == "breaking":
+
+            severity = change.classification.severity
+            action = change.classification.recommended_action
+
+            if severity == "breaking":
                 summary.breaking_changes += 1
-            elif change.classification.severity == "deprecation":
+            elif severity == "deprecation":
                 summary.deprecations += 1
-            elif change.classification.severity == "additive":
+            elif severity == "additive":
                 summary.additive_changes += 1
-            elif change.classification.severity == "minor":
+            elif severity == "minor":
                 summary.minor_changes += 1
             
             # Count by action
-            if change.classification.recommended_action == "alert_critical":
+            if action == "alert_critical":
                 summary.critical_alerts_needed += 1
-            elif change.classification.recommended_action == "alert_warning":
+            elif action == "alert_warning":
                 summary.warning_alerts_needed += 1
-            elif change.classification.recommended_action == "notify_info":
+            elif action == "notify_info":
                 summary.info_notifications += 1
         
         return summary

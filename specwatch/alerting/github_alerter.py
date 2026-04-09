@@ -3,13 +3,13 @@ GitHub alerter.
 Creates GitHub issues for API changes.
 """
 
-import logging
 from typing import Optional
 from github import Github, GithubException
 from .alert_models import Alert, AlertResult, AlertChannel
 from .alert_formatter import AlertFormatter
+from specwatch.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # GitHub issue alerter; Creates issues in a GitHub repository for API changes.
 class GitHubAlerter:

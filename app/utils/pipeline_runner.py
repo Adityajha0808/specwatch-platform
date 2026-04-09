@@ -8,14 +8,14 @@ Tracks pipeline status for UI progress updates.
 
 import subprocess
 import threading
-import logging
 import sys
 import os
 from pathlib import Path
 from typing import Optional, Dict, Any
 from datetime import datetime, UTC
+from specwatch.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Background pipeline runner for Flask app. Runs pipelines in separate threads to avoid blocking Flask.

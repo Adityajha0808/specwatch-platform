@@ -661,6 +661,35 @@ subprocess.run([sys.executable, "-m", "pipelines.discovery_pipeline"], ...)
 
 ---
 
+---
+
+### 8. Caching
+
+**Purpose**: Cache costly calls for discovery, classification and ingestion.
+
+**Implementation**:
+
+- Fingerprint map:
+
+Discovery:
+Key   = tavily:search:<query>:<max_results>
+Value = full Tavily JSON response
+
+Ingestion:
+Key   = spec:hash:{vendor}
+Value = hash of actual fetched spec content
+
+Classification:
+Key   = classification:<diff_hash>
+Value = full LLM classified diff JSON
+
+Each stage caches its highest-cost deterministic artifact: Tavily search payloads in discovery, vendor-level spec content hashes in ingestion, and full LLM-classified diff outputs in classification, using content-based fingerprints as Redis keys.
+
+I/O reduction in ingestion: The optimization is not the new hash generation itself — we still must hash the freshly fetched spec.
+The gain comes from replacing historical snapshot reads with a Redis fingerprint lookup, which turns change detection into a constant-time metadata comparison.
+
+---
+
 ## Data Flow
 
 ```

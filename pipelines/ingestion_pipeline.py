@@ -11,7 +11,7 @@ import os
 import sys
 import json
 import argparse
-from typing import List, Tuple
+from typing import List
 
 from specwatch.ingestion.openapi_resolver import OpenAPIResolver
 from specwatch.ingestion.spec_fetcher import fetch_spec
@@ -38,16 +38,14 @@ def load_discovery_files():
         return []
 
     files = []
-
     for file in sorted(os.listdir(DISCOVERY_PATH)):
-
         if file.endswith(".json"):
             files.append(os.path.join(DISCOVERY_PATH, file))
 
     return files
 
 
-# Extract discovery sources, fetch and store the spec
+# Run ingestion pipeline with caching
 def run_ingestion(vendors_input: List[str] = None) -> bool:
 
     logger.info("Starting ingestion pipeline")
@@ -56,15 +54,16 @@ def run_ingestion(vendors_input: List[str] = None) -> bool:
 
     if not discovery_files:
         logger.warning("No discovery files found")
-        return
+        return False
 
-    # Filters out vendors for specific vendor runs
+    # Filter vendors if specified
     vendor_filter = set(v.lower() for v in vendors_input) if vendors_input else None
 
     vendors_processed = 0
+    vendors_skipped = 0
+    vendors_failed = 0
 
     for file_path in discovery_files:
-
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -83,51 +82,65 @@ def run_ingestion(vendors_input: List[str] = None) -> bool:
 
         # Vendor-specific filtering
         if vendor_filter and vendor not in vendor_filter:
-            logger.debug(f"Skipping vendor {vendor} (not requested)")
+            logger.debug(f"Skipping vendor {vendor} (not in filter)")
             continue
 
         openapi_source = sources.get("openapi")
 
         if not openapi_source:
             logger.warning(f"No OpenAPI source for {vendor}")
+            vendors_failed += 1
             continue
 
         logger.info(f"Processing OpenAPI source for {vendor}")
-        logger.info(f"Resolving OpenAPI spec for {vendor}")
 
+        # Resolve spec URL
         spec_url = resolver.resolve(vendor, openapi_source)
 
         if not spec_url:
             logger.warning(f"Could not resolve OpenAPI spec for {vendor}")
+            vendors_failed += 1
             continue
 
         logger.info(f"Resolved spec URL for {vendor}: {spec_url}")
 
-        spec_content = fetch_spec(spec_url)
+        # Fetch spec (with content-based caching)
+        spec_content = fetch_spec(spec_url, vendor=vendor)
 
-        if not spec_content:
-            logger.warning(f"Failed to fetch spec for {vendor}")
+        # Handle cache skip signal
+        if spec_content is None:
+            logger.info(f"✓ Spec unchanged for {vendor} (cached hash match), skipping storage")
+            vendors_skipped += 1
             continue
 
-        stored_file= store_spec(vendor, spec_content)
+        # Store new/changed spec
+        stored_file = store_spec(vendor, spec_content)
 
         if stored_file:
+            logger.info(f"✓ Stored new spec for {vendor}: {stored_file}")
             vendors_processed += 1
-        
+        else:
+            logger.error(f"Failed to store spec for {vendor}")
+            vendors_failed += 1
 
-    logger.info(f"Ingestion pipeline completed. Vendors Processed = {vendors_processed}.")
+    # Summary
+    logger.info("="*60)
+    logger.info(f"Ingestion pipeline completed:")
+    logger.info(f"  - Processed (new/changed): {vendors_processed}")
+    logger.info(f"  - Skipped (unchanged): {vendors_skipped}")
+    logger.info(f"  - Failed: {vendors_failed}")
+    logger.info("="*60)
 
     return True
 
 
 # For Running ingestion pipeline standalone: python3 -m pipelines.ingestion_pipeline
 if __name__ == "__main__":
-    
     parser = argparse.ArgumentParser(description="Run ingestion pipeline")
     parser.add_argument(
         "--vendors",
         nargs="+",
-        help="Specific vendors to discover (e.g., stripe). If not specified, discover for all vendors."
+        help="Specific vendors to process (e.g., stripe)"
     )
     parser.add_argument(
         "--debug",
@@ -137,13 +150,12 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    # Enable debug logging if requested
     if args.debug:
         os.environ['LOG_LEVEL'] = 'DEBUG'
     
-    logger.info("Ingestion pipeline cli started")
+    logger.info("Ingestion pipeline CLI started")
     
     success = run_ingestion(vendors_input=args.vendors)
     
-    logger.info("Ingestion pipeline cli complete")
+    logger.info("Ingestion pipeline CLI complete")
     sys.exit(0 if success else 1)

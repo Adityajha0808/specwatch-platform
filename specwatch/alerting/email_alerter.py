@@ -12,8 +12,9 @@ from email.mime.text import MIMEText
 from typing import List
 from .alert_models import Alert, AlertResult, AlertChannel
 from .alert_formatter import AlertFormatter
+from specwatch.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Email alerter via SMTP

@@ -2,12 +2,12 @@
 Slack alerter: Sends alerts to Slack channel.
 """
 
-import logging
 from typing import Optional
 from .alert_models import Alert, AlertResult, AlertChannel
 from .alert_formatter import AlertFormatter
+from specwatch.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Sends alerts to Slack channel using Slack SDK

@@ -1,3 +1,9 @@
+#!/usr/bin/env python3
+"""
+OpenAPI URL resolver.
+Resolves various GitHub/docs URLs to actual spec URLs.
+"""
+
 import requests
 from urllib.parse import urlparse
 from specwatch.utils.logger import get_logger

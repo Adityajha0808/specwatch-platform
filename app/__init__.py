@@ -8,6 +8,7 @@ from config import Config
 
 # Register blueprints
 from app.routes import dashboard, vendors, pipelines, alerts
+from app.routes import cache as cache_routes
 
 # Create and configure Flask application
 def create_app():
@@ -23,5 +24,6 @@ def create_app():
     app.register_blueprint(vendors.bp)
     app.register_blueprint(pipelines.bp)
     app.register_blueprint(alerts.bp)
+    app.register_blueprint(cache_routes.bp)
     
     return app

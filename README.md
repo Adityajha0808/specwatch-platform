@@ -245,7 +245,7 @@ python3 -m pipelines.alerting_pipeline --test
 python3 app.py
 ```
 
-Open browser: **http://localhost:5000**
+Open browser: **http://localhost:5050**
 
 ### Dashboard Features
 
