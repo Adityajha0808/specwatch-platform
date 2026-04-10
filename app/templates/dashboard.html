@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - SpecWatch{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h2><i class="bi bi-speedometer2"></i> API Monitoring Dashboard</h2>
+        <p class="text-muted">Real-time monitoring of {{ stats.total_vendors }} API vendors</p>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card border-success">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-2 text-muted">Healthy Vendors</h6>
+                <h2 class="card-title text-success">{{ stats.healthy_vendors }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-warning">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-2 text-muted">Warnings</h6>
+                <h2 class="card-title text-warning">{{ stats.warning_vendors }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-danger">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-2 text-muted">Critical</h6>
+                <h2 class="card-title text-danger">{{ stats.critical_vendors }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-primary">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-2 text-muted">Total Changes</h6>
+                <h2 class="card-title text-primary">{{ stats.total_changes }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Vendor Cards -->
+<div class="row mb-4">
+    <div class="col">
+        <h4>Vendors</h4>
+    </div>
+</div>
+
+<div class="row mb-4">
+    {% for vendor in vendors %}
+    <div class="col-md-4 mb-3">
+        <div class="card h-100 
+            {% if vendor.status == 'critical' %}border-danger
+            {% elif vendor.status == 'warning' %}border-warning
+            {% else %}border-success{% endif %}">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h5 class="card-title">{{ vendor.display_name }}</h5>
+                    <span class="badge 
+                        {% if vendor.status == 'critical' %}bg-danger
+                        {% elif vendor.status == 'warning' %}bg-warning
+                        {% else %}bg-success{% endif %}">
+                        {% if vendor.status == 'critical' %}🔴 Critical
+                        {% elif vendor.status == 'warning' %}⚠️ Warning
+                        {% else %}✅ Healthy{% endif %}
+                    </span>
+                </div>
+                
+                <p class="card-text small">
+                    <i class="bi bi-clock"></i> 
+                    {% if vendor.last_sync %}
+                        Last sync: {{ vendor.last_sync[:19] }}
+                    {% else %}
+                        Never synced
+                    {% endif %}
+                </p>
+                
+                <div class="mb-2">
+                    <span class="badge bg-secondary">{{ vendor.changes_count }} changes</span>
+                    {% if vendor.breaking_count > 0 %}
+                    <span class="badge bg-danger">{{ vendor.breaking_count }} breaking</span>
+                    {% endif %}
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <a href="/vendors/{{ vendor.name }}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-eye"></i> View Details
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Recent Changes -->
+<div class="row">
+    <div class="col">
+        <h4>Recent Changes</h4>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col">
+        {% if recent_changes %}
+        <div class="list-group">
+            {% for change in recent_changes %}
+            <div class="list-group-item">
+                <div class="d-flex w-100 justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <h6 class="mb-1">
+                            <span class="badge 
+                                {% if change.severity == 'breaking' %}bg-danger
+                                {% elif change.severity == 'deprecation' %}bg-warning text-dark
+                                {% elif change.severity == 'additive' %}bg-success
+                                {% else %}bg-secondary{% endif %}">
+                                {% if change.severity == 'breaking' %}🔴 BREAKING
+                                {% elif change.severity == 'deprecation' %}⚠️ DEPRECATION
+                                {% elif change.severity == 'additive' %}✅ ADDITIVE
+                                {% else %}ℹ️ MINOR{% endif %}
+                            </span>
+                            <span class="badge bg-dark">{{ change.vendor }}</span>
+                            {{ change.method }} {{ change.path }}
+                        </h6>
+                        <p class="mb-1 small">{{ change.reasoning }}</p>
+                        <small class="text-muted">
+                            <i class="bi bi-clock"></i> {{ change.classified_at[:19] }} 
+                            · Confidence: {{ (change.confidence * 100)|int }}%
+                        </small>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> No changes detected yet. Run a pipeline to start monitoring.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Include alert modal component -->
+{% include 'components/alert_modal.html' %}
+
+{% endblock %}

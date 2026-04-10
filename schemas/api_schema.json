@@ -1,0 +1,209 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://specwatch.internal/schemas/api_schema.json",
+  "title": "SpecWatch Canonical API Schema",
+  "description": "Normalized representation of API specifications from heterogeneous sources (OpenAPI, docs, etc.)",
+  "type": "object",
+  "required": ["metadata", "base_url", "endpoints"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "description": "Metadata about this normalized snapshot",
+      "required": ["vendor", "normalized_at", "source_file", "source_hash", "schema_version"],
+      "properties": {
+        "vendor": {
+          "type": "string",
+          "description": "Vendor identifier (lowercase, no spaces)",
+          "examples": ["stripe", "twilio", "openai"]
+        },
+        "normalized_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO timestamp when normalization occurred",
+          "examples": ["2026-03-29T20:27:50.656220Z"]
+        },
+        "source_file": {
+          "type": "string",
+          "description": "Filename of the raw spec that was normalized",
+          "examples": ["stripe_openapi_2026-03-29T20-27-40.yaml"]
+        },
+        "source_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{16}$",
+          "description": "SHA-256 hash (first 16 chars) of source file for deduplication",
+          "examples": ["26ec724b943e9c39"]
+        },
+        "schema_version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+$",
+          "description": "Version of this normalization schema",
+          "examples": ["1.0"]
+        },
+        "openapi_version": {
+          "type": "string",
+          "description": "OpenAPI spec version if applicable",
+          "examples": ["3.0.0", "3.1.0"]
+        }
+      }
+    },
+    "base_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Base URL for API endpoints",
+      "examples": ["https://api.stripe.com", "https://api.twilio.com"]
+    },
+    "endpoints": {
+      "type": "array",
+      "description": "List of API endpoints",
+      "items": {
+        "type": "object",
+        "required": ["id", "path", "method"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS):.+$",
+            "description": "Unique endpoint identifier: {METHOD}:{path}",
+            "examples": ["POST:/v1/customers", "GET:/v1/customers/{id}"]
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^/.+$",
+            "description": "Endpoint path (may contain path parameters)",
+            "examples": ["/v1/customers", "/v1/customers/{id}"]
+          },
+          "method": {
+            "type": "string",
+            "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"],
+            "description": "HTTP method"
+          },
+          "summary": {
+            "type": "string",
+            "description": "Brief description of endpoint",
+            "examples": ["Create a customer", "Retrieve a customer"]
+          },
+          "deprecated": {
+            "type": "boolean",
+            "description": "Whether endpoint is deprecated",
+            "default": false
+          },
+          "auth_required": {
+            "type": "boolean",
+            "description": "Whether authentication is required",
+            "default": true
+          },
+          "request_body_required": {
+            "type": "boolean",
+            "description": "Whether request body is required",
+            "default": false
+          },
+          "responses": {
+            "type": "array",
+            "description": "List of response status codes",
+            "items": {
+              "type": "string",
+              "pattern": "^[1-5]\\d{2}$",
+              "examples": ["200", "201", "400", "401", "404", "500"]
+            }
+          },
+          "parameters": {
+            "type": "array",
+            "description": "List of parameters (path, query, header, body)",
+            "items": {
+              "type": "object",
+              "required": ["name", "location", "type", "required"],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Parameter name",
+                  "examples": ["email", "customer_id", "limit", "offset"]
+                },
+                "location": {
+                  "type": "string",
+                  "enum": ["path", "query", "header", "body"],
+                  "description": "Where parameter is passed"
+                },
+                "type": {
+                  "type": "string",
+                  "enum": ["string", "integer", "number", "boolean", "array", "object"],
+                  "description": "Parameter data type"
+                },
+                "required": {
+                  "type": "boolean",
+                  "description": "Whether parameter is required"
+                },
+                "description": {
+                  "type": "string",
+                  "description": "Parameter description",
+                  "examples": ["Customer email address", "Unique customer identifier"]
+                },
+                "default": {
+                  "description": "Default value if parameter not provided"
+                },
+                "enum": {
+                  "type": "array",
+                  "description": "Allowed values for parameter",
+                  "items": {
+                    "type": ["string", "integer", "number"]
+                  }
+                },
+                "pattern": {
+                  "type": "string",
+                  "description": "Regex pattern for validation (strings only)"
+                },
+                "minimum": {
+                  "type": "number",
+                  "description": "Minimum value (numbers only)"
+                },
+                "maximum": {
+                  "type": "number",
+                  "description": "Maximum value (numbers only)"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "metadata": {
+        "vendor": "stripe",
+        "normalized_at": "2026-03-29T20:27:50.656220Z",
+        "source_file": "stripe_openapi_2026-03-29T20-27-40.yaml",
+        "source_hash": "26ec724b943e9c39",
+        "schema_version": "1.0",
+        "openapi_version": "3.0.0"
+      },
+      "base_url": "https://api.stripe.com",
+      "endpoints": [
+        {
+          "id": "POST:/v1/customers",
+          "path": "/v1/customers",
+          "method": "POST",
+          "summary": "Create a customer",
+          "deprecated": false,
+          "auth_required": true,
+          "request_body_required": false,
+          "responses": ["200", "400", "401"],
+          "parameters": [
+            {
+              "name": "email",
+              "location": "body",
+              "type": "string",
+              "required": false,
+              "description": "Customer email address"
+            },
+            {
+              "name": "name",
+              "location": "body",
+              "type": "string",
+              "required": false,
+              "description": "Customer name"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

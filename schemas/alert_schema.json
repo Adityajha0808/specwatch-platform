@@ -1,0 +1,216 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://specwatch.internal/schemas/alert_schema.json",
+  "title": "SpecWatch Alert Schema",
+  "description": "Alert format for multi-channel notifications (GitHub, Email, Slack)",
+  "type": "object",
+  "required": [
+    "alert_id",
+    "vendor",
+    "severity",
+    "title",
+    "created_at",
+    "change"
+  ],
+  "properties": {
+    "alert_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique alert identifier",
+      "examples": ["a1b2c3d4-e5f6-4789-a0b1-c2d3e4f5a6b7"]
+    },
+    "vendor": {
+      "type": "string",
+      "description": "Vendor identifier",
+      "examples": ["stripe", "twilio", "openai"]
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["breaking", "deprecation", "additive", "minor"],
+      "description": "Severity level from classification"
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low"],
+      "description": "Alert priority for routing"
+    },
+    "title": {
+      "type": "string",
+      "description": "Short alert title",
+      "examples": [
+        "BREAKING: POST /v1/payments",
+        "DEPRECATION: GET /v1/charges/{id}",
+        "NEW FEATURE: POST /v1/invoices/finalize"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp when alert was created",
+      "examples": ["2026-03-31T10:00:00Z"]
+    },
+    "change": {
+      "type": "object",
+      "description": "Details of the API change that triggered alert",
+      "required": ["endpoint_id", "method", "path", "change_type"],
+      "properties": {
+        "endpoint_id": {
+          "type": "string",
+          "pattern": "^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS):.+$",
+          "examples": ["POST:/v1/payments", "DELETE:/v1/customers/{id}"]
+        },
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
+        },
+        "path": {
+          "type": "string",
+          "examples": ["/v1/payments", "/v1/customers/{id}"]
+        },
+        "change_type": {
+          "type": "string",
+          "enum": [
+            "endpoint_added",
+            "endpoint_removed",
+            "endpoint_deprecated",
+            "parameter_removed",
+            "parameter_type_changed",
+            "parameter_required_changed"
+          ]
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "LLM confidence score"
+        },
+        "reasoning": {
+          "type": "string",
+          "description": "LLM reasoning for classification"
+        },
+        "migration_path": {
+          "type": ["string", "null"],
+          "description": "Steps to migrate (if applicable)"
+        },
+        "estimated_impact": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        }
+      }
+    },
+    "channels": {
+      "type": "array",
+      "description": "Channels where alert will be sent",
+      "items": {
+        "type": "string",
+        "enum": ["github", "email", "slack"]
+      },
+      "examples": [["github", "email", "slack"], ["github"]]
+    },
+    "delivery_status": {
+      "type": "object",
+      "description": "Delivery status per channel",
+      "properties": {
+        "github": {
+          "type": "object",
+          "properties": {
+            "sent": {"type": "boolean"},
+            "timestamp": {"type": "string", "format": "date-time"},
+            "issue_number": {"type": "integer"},
+            "issue_url": {"type": "string", "format": "uri"},
+            "error": {"type": ["string", "null"]}
+          }
+        },
+        "email": {
+          "type": "object",
+          "properties": {
+            "sent": {"type": "boolean"},
+            "timestamp": {"type": "string", "format": "date-time"},
+            "recipients": {
+              "type": "array",
+              "items": {"type": "string", "format": "email"}
+            },
+            "error": {"type": ["string", "null"]}
+          }
+        },
+        "slack": {
+          "type": "object",
+          "properties": {
+            "sent": {"type": "boolean"},
+            "timestamp": {"type": "string", "format": "date-time"},
+            "channel": {"type": "string"},
+            "message_ts": {"type": "string"},
+            "error": {"type": ["string", "null"]}
+          }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional metadata",
+      "properties": {
+        "baseline_version": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "latest_version": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "diff_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to view full diff"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "alert_id": "a1b2c3d4-e5f6-4789-a0b1-c2d3e4f5a6b7",
+      "vendor": "stripe",
+      "severity": "breaking",
+      "priority": "critical",
+      "title": "BREAKING: POST /v1/payments",
+      "created_at": "2026-03-31T10:00:00Z",
+      "change": {
+        "endpoint_id": "POST:/v1/payments",
+        "method": "POST",
+        "path": "/v1/payments",
+        "change_type": "parameter_removed",
+        "confidence": 0.99,
+        "reasoning": "Required parameter 'source' removed will cause validation errors",
+        "migration_path": "Replace 'source' parameter with 'payment_method'",
+        "estimated_impact": "critical"
+      },
+      "channels": ["github", "email", "slack"],
+      "delivery_status": {
+        "github": {
+          "sent": true,
+          "timestamp": "2026-03-31T10:00:05Z",
+          "issue_number": 42,
+          "issue_url": "https://github.com/org/specwatch-alerts/issues/42",
+          "error": null
+        },
+        "email": {
+          "sent": true,
+          "timestamp": "2026-03-31T10:00:06Z",
+          "recipients": ["api-team@company.com"],
+          "error": null
+        },
+        "slack": {
+          "sent": true,
+          "timestamp": "2026-03-31T10:00:07Z",
+          "channel": "#eng-alerts",
+          "message_ts": "1711875607.123456",
+          "error": null
+        }
+      },
+      "metadata": {
+        "baseline_version": "2026-03-20T22:51:37Z",
+        "latest_version": "2026-03-29T20:27:50Z",
+        "diff_url": "https://dashboard.internal/vendors/stripe/diff"
+      }
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  "stripe": "https://raw.githubusercontent.com/stripe/openapi/master/latest/openapi.spec3.sdk.yaml",
+  "openai": "https://app.stainless.com/api/spec/documented/openai/openapi.documented.yml",
+  "twilio": "https://raw.githubusercontent.com/twilio/twilio-oai/main/spec/json/twilio_api_v2010.json"
+}

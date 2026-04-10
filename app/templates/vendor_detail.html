@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block title %}{{ vendor.display_name }} - SpecWatch{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/vendors">Vendors</a></li>
+                <li class="breadcrumb-item active">{{ vendor.display_name }}</li>
+            </ol>
+        </nav>
+        <h2>{{ vendor.display_name }}</h2>
+        <p class="text-muted">{{ vendor.name }}</p>
+    </div>
+</div>
+
+<!-- Vendor Info Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-2 text-muted">Status</h6>
+                <h4>
+                    <span class="badge 
+                        {% if vendor.status == 'critical' %}bg-danger
+                        {% elif vendor.status == 'warning' %}bg-warning text-dark
+                        {% else %}bg-success{% endif %}">
+                        {{ vendor.status }}
+                    </span>
+                </h4>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-2 text-muted">Endpoints</h6>
+                <h4>{{ vendor.endpoint_count }}</h4>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-2 text-muted">Changes</h6>
+                <h4>{{ vendor.changes_count }}</h4>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-2 text-muted">Last Sync</h6>
+                <small>
+                    {% if vendor.last_sync %}
+                        {{ vendor.last_sync[:19] }}
+                    {% else %}
+                        Never
+                    {% endif %}
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- URLs -->
+<div class="row mb-4">
+    <div class="col">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">API Resources</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <strong>Documentation</strong><br>
+                        {% if vendor.urls.docs %}
+                        <a href="{{ vendor.urls.docs }}" target="_blank">{{ vendor.urls.docs }}</a>
+                        {% else %}
+                        <span class="text-muted">Not available</span>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <strong>OpenAPI Spec</strong><br>
+                        {% if vendor.urls.openapi %}
+                        <a href="{{ vendor.urls.openapi }}" target="_blank">{{ vendor.urls.openapi }}</a>
+                        {% else %}
+                        <span class="text-muted">Not available</span>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Changelog</strong><br>
+                        {% if vendor.urls.changelog %}
+                        <a href="{{ vendor.urls.changelog }}" target="_blank">{{ vendor.urls.changelog }}</a>
+                        {% else %}
+                        <span class="text-muted">Not available</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Versions -->
+<div class="row mb-4">
+    <div class="col">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Versions</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Type</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for version in vendor.versions %}
+                        <tr>
+                            <td>
+                                <code>{{ version.timestamp }}</code>
+                            </td>
+                            <td>
+                                {% if version.is_baseline %}
+                                <span class="badge bg-primary">★ Baseline</span>
+                                {% endif %}
+                                {% if version.is_latest %}
+                                <span class="badge bg-success">⚡ Latest</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if not version.is_baseline %}
+                                <button class="btn btn-sm btn-outline-primary" 
+                                        onclick="updateBaseline('{{ vendor.name }}', '{{ version.timestamp }}')">
+                                    Set as Baseline
+                                </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Changes -->
+<div class="row">
+    <div class="col">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Detected Changes</h5>
+            </div>
+            <div class="card-body">
+                {% if vendor.changes %}
+                <div class="list-group">
+                    {% for change in vendor.changes %}
+                    <div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">
+                                    <span class="badge 
+                                        {% if change.severity == 'breaking' %}bg-danger
+                                        {% elif change.severity == 'deprecation' %}bg-warning text-dark
+                                        {% elif change.severity == 'additive' %}bg-success
+                                        {% else %}bg-secondary{% endif %}">
+                                        {{ change.severity }}
+                                    </span>
+                                    {{ change.method }} {{ change.path }}
+                                </h6>
+                                <p class="mb-1 small">{{ change.reasoning }}</p>
+                                <small class="text-muted">
+                                    {{ change.classified_at[:19] }} 
+                                    · Confidence: {{ (change.confidence * 100)|int }}%
+                                    · Impact: {{ change.impact }}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted">No changes detected</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function updateBaseline(vendor, timestamp) {
+    if (!confirm(`Set ${timestamp} as baseline for ${vendor}?`)) return;
+    
+    fetch(`/vendors/api/${vendor}/baseline`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({timestamp})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    });
+}
+</script>
+{% endblock %}

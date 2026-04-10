@@ -1,0 +1,16 @@
+{
+  "vendors": [
+    {
+      "name": "openai",
+      "display_name": "OpenAI"
+    },
+    {
+      "name": "stripe",
+      "display_name": "Stripe"
+    },
+    {
+      "name": "twilio",
+      "display_name": "Twilio"
+    }
+  ]
+}
