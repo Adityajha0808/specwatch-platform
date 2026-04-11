@@ -38,6 +38,12 @@ class Alert(BaseModel):
     priority: AlertPriority
     channels: List[AlertChannel]
     created_at: str = datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%S')
+
+    title: Optional[str] = None
+    impact: Optional[str] = "unknown"
+    baseline_version: Optional[str] = ""
+    latest_version: Optional[str] = ""
+    detected_at: Optional[str] = None
     
     # Create Alert from classified change
     @classmethod

@@ -1473,7 +1473,7 @@ Results: 95% accuracy, 0.98 avg confidence, $0.001 per classification."
 ### Question: "What monitoring and observability do you have?"
 
 **Answer**:
-"Three layers:
+
 1. Structured Logging (JSON):
 json{
   "event": "discovery_complete",
@@ -1494,23 +1494,31 @@ Success rate per stage
 LLM confidence distribution
 Cache hit rates
 
-3. Cost Tracking:
-Tavily: 9 queries × $0.001 = $0.009/run
-Groq: 10 classifications × $0.001 = $0.01/run
-Total: $0.019/run → $0.57/month
-4. Alert Metrics:
+3. Alert Metrics:
 
 False positive rate (<5% target)
 True positive rate (>95% target)
 Delivery success (99% target)
 
-5. Dashboards (future):
+Observability exists at both application and infrastructure layers.
 
-Grafana: Pipeline latency over time
-Datadog: Error rate by stage
-Custom: Classification accuracy trends
+* Application side:
 
-Current: Structured logs + manual analysis. Phase 2: Grafana + CloudWatch."
+structured pipeline logs
+per-stage execution timing
+success/failure markers
+vendor-level traceability
+pipeline output persistence in storage/
+
+* Infrastructure side on EC2:
+
+journalctl for Gunicorn/systemd logs
+Nginx access/error logs
+disk growth checks on storage/
+CPU and CPU credits from CloudWatch
+memory via Linux tools / CloudWatch agent
+
+For this project, disk growth is the most important real production metric, because snapshots accumulate over time.”
 
 ### Question: "Walk me through your caching implementation"
 
@@ -1756,6 +1764,115 @@ We need to compare current spec hash against ALL previous hashes to detect chang
 
 **What We Learned:**
 TTL isn't a knob to tune for maximum hit rate - it's about finding the right balance between performance and correctness. Going from 30→90 days on classification might increase hit rate to 85%, but risk classifying outdated changes incorrectly."
+
+### Question: "How did you deploy this in production?"
+
+Answer: “I deployed it on AWS EC2 using a standard production Flask stack:
+
+Amazon Linux EC2
+Python 3.11 virtualenv
+Gunicorn as WSGI server
+systemd service for process supervision
+Nginx reverse proxy on port 80
+Elastic IP for static public routing
+logrotate for file-based log retention
+
+This setup gives restart resilience, boot persistence, and reverse proxy security without introducing container overhead for the current scale.”
+
+### Question: "Why didn’t you use Redis in production on EC2?"
+
+Answer: “This was an intentional engineering tradeoff.
+
+Redis is valuable when:
+
+vendor count is high
+discovery queries repeat heavily
+multiple workers share hot state
+queue-backed execution exists
+
+In the current production scope, only ~3 vendors are monitored and pipeline execution is UI-triggered, not continuously scheduled.
+
+That means the operational cost of introducing Redis exceeded the performance benefit.
+
+I kept Redis as an optional abstraction in the codebase but deliberately did not deploy it on EC2 yet.
+
+This keeps the production footprint smaller, reduces moving parts, and avoids managing Redis memory, persistence, port exposure, and failure recovery for limited ROI.”
+
+### Question: "How is logging done in production?"
+
+Answer: “Logging is split into three layers:
+
+systemd / Gunicorn logs
+accessed using journalctl -u specwatch -f
+useful for worker crashes, startup failures, import issues
+
+application file logs
+/var/log/specwatch/app.log
+Flask app events and pipeline trigger actions
+
+pipeline execution logs
+/var/log/specwatch/pipeline.log
+vendor-specific execution, diff outputs, alerting progress
+
+I also configured logrotate so long-running snapshot workflows do not silently fill EBS storage.”
+
+### Question: "How do you track EC2 resource usage?"
+
+Answer: “I monitor it at two layers.
+
+AWS layer:
+
+CPU utilization
+CPU credit balance
+network throughput
+instance status checks
+
+Linux layer:
+
+top / htop
+free -h
+df -h
+du -sh storage
+
+For this project, the most important metric is storage growth because versioned snapshots, diffs, and classified outputs accumulate over time.”
+
+### Question: "Why Gunicorn + Nginx instead of Flask dev server?"
+
+Answer: “The Flask dev server is single-process and not production safe.
+
+Gunicorn provides controlled worker lifecycle, proper WSGI handling, and systemd integration.
+
+Nginx adds:
+
+reverse proxying
+static asset efficiency
+client buffering
+future TLS termination
+domain-based routing
+
+This is the minimal industry-standard Python web deployment stack.”
+
+### Question: "How would you evolve this toward MCP or agentic workflows?"
+
+Answer: “The clean evolution path is exposing each pipeline stage as a tool interface.
+
+For MCP-style evolution:
+
+discovery becomes a resolve_sources tool
+ingestion becomes fetch_spec
+diff becomes compare_versions
+classification becomes assess_change_risk
+alerting becomes dispatch_notification
+
+Because the current codebase already enforces stage boundaries, converting those stages into tool contracts is straightforward.”
+
+### Question: "What’s the biggest production risk today?"
+
+Answer: “The biggest risk is silent storage growth and false-positive trust erosion.
+
+Storage growth comes from versioned snapshots. False positives come from noisy normalization or unstable ordering.
+
+That’s why deterministic normalization + storage monitoring are the two highest-leverage operational safeguards in this system.”
 
 ---
 
