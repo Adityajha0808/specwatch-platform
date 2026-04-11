@@ -2017,7 +2017,7 @@ UPDATE April 5: Discovery calls are 10x faster after caching. Ingestion I/O is r
 
 # Current Status
 
-At the end of STEP 8:
+At the end of STEP 9:
 
 **Discovery pipeline** – Identifies official API sources  
 **Ingestion pipeline** – Fetches raw OpenAPI specifications  
