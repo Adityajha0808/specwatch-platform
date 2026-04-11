@@ -143,7 +143,7 @@ specwatch-platform/
 │   └── diff_schema.json           # Change detection results
 │   └── discovery_schema.json           # Source URL discovery
 ├── main.py                 # Pipeline entry point
-├── app.py                  # Dashboard entry point
+├── run_dashboard.py                  # Dashboard entry point
 ├── requirements.txt
 ├── .env                    # Configuration (create from .env.example)
 ├── README.md

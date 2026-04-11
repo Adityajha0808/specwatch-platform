@@ -14,6 +14,7 @@ from datetime import datetime, UTC
 
 from specwatch.alerting.github_alerter import GitHubAlerter
 from specwatch.alerting.email_alerter import EmailAlerter
+from specwatch.alerting.slack_alerter import SlackAlerter
 from specwatch.alerting.alert_models import Alert, AlertChannel, AlertPriority
 from specwatch.utils.logger import get_logger
 from dotenv import load_dotenv
@@ -27,12 +28,14 @@ logger = get_logger(__name__)
 class AlertingPipeline:
     
     # Initialize alerting pipeline
-    def __init__(self, vendors_input: bool = False, test_mode: bool = False):
+    def __init__(self, vendors_input: Optional[List[str]] = None, test_mode: bool = False, batch_slack: bool = True):
 
         self.vendors_input = vendors_input
         self.test_mode = test_mode
+        self.batch_slack = batch_slack
         self.github_alerter: Optional[GitHubAlerter] = None
         self.email_alerter: Optional[EmailAlerter] = None
+        self.slack_alerter: Optional[SlackAlerter] = None
         
         # Set input path based on mode
         if test_mode:
@@ -79,29 +82,48 @@ class AlertingPipeline:
                 logger.info("Email alerter disabled (not configured)")
         except Exception as e:
             logger.warning(f"Failed to initialize email alerter: {e}")
+        
+        # Slack alerter
+        try:
+            slack_webhook_url = os.getenv("SLACK_WEBHOOK_URL")
+            
+            if slack_webhook_url:
+                self.slack_alerter = SlackAlerter()
+                logger.info("✓ Slack alerter enabled")
+                if self.batch_slack:
+                    logger.info("  Mode: Batch summary (one message)")
+                else:
+                    logger.info("  Mode: Individual messages")
+            else:
+                logger.info("Slack alerter disabled (SLACK_WEBHOOK_URL not configured)")
+        except Exception as e:
+            logger.warning(f"Failed to initialize Slack alerter: {e}")
     
     # Run alerting pipeline
     def run(self) -> Dict[str, int]:
 
         if not self.input_path.exists():
             logger.warning(f"Input path does not exist: {self.input_path}")
-            return {"total": 0, "sent": 0, "failed": 0}
+            return {"total": 0, "sent": 0, "failed": 0, "slack_sent": 0}
         
         # Discover vendors
         vendors = self._discover_vendors()
         
         if not vendors:
             logger.info("No vendors found with classified diffs")
-            return {"total": 0, "sent": 0, "failed": 0}
+            return {"total": 0, "sent": 0, "failed": 0, "slack_sent": 0}
         
+        # Filter vendors if specified
         if self.vendors_input:
-            vendors = self.vendors_input
+            vendors = [v for v in vendors if v in self.vendors_input]
+            logger.info(f"Filtered to {len(vendors)} requested vendors: {vendors}")
         
         logger.info(f"Processing alerts for {len(vendors)} vendors")
         
         total_alerts = 0
         sent_alerts = 0
         failed_alerts = 0
+        all_alerts_for_slack = []  # Collect for batch Slack alert
         
         # Process each vendor
         for vendor in vendors:
@@ -130,20 +152,54 @@ class AlertingPipeline:
                 # Create alert object
                 alert = self._create_alert(vendor, change, classified_diff)
                 
-                # Send via configured channels
-                success = self._send_alert(alert)
+                # Send via GitHub and Email
+                success = self._send_alert_traditional_channels(alert)
                 
                 if success:
                     sent_alerts += 1
                 else:
                     failed_alerts += 1
+                
+                # Collect for Slack (batch or individual)
+                if self.slack_alerter:
+                    if self.batch_slack:
+                        # Collect for batch summary
+                        all_alerts_for_slack.append(alert)
+                    else:
+                        # Send individual Slack message
+                        slack_success = self._send_slack_alert_individual(alert)
+                        if slack_success:
+                            logger.info(f"✓ Slack alert sent for {vendor}")
         
-        logger.info(f"Alerting complete: {sent_alerts}/{total_alerts} alert(s) sent successfully")
+        
+        # Send batch Slack alert if enabled
+        slack_batch_sent = 0
+        if self.batch_slack and all_alerts_for_slack and self.slack_alerter:
+            slack_success = self._send_slack_batch(all_alerts_for_slack)
+            if slack_success:
+                slack_batch_sent = 1
+                logger.info(f"✓ Batch Slack alert sent ({len(all_alerts_for_slack)} alerts)")
+            else:
+                logger.warning("Batch Slack alert failed")
+        
+        # Summary
+        logger.info("="*60)
+        logger.info(f"Alerting pipeline completed:")
+        logger.info(f"  - Total alerts: {total_alerts}")
+        logger.info(f"  - GitHub/Email sent: {sent_alerts}")
+        logger.info(f"  - GitHub/Email failed: {failed_alerts}")
+        if self.slack_alerter:
+            if self.batch_slack:
+                logger.info(f"  - Slack batch sent: {slack_batch_sent}")
+            else:
+                logger.info(f"  - Slack individual: {len(all_alerts_for_slack)}")
+        logger.info("="*60)
         
         return {
             "total": total_alerts,
             "sent": sent_alerts,
-            "failed": failed_alerts
+            "failed": failed_alerts,
+            "slack_sent": slack_batch_sent if self.batch_slack else len(all_alerts_for_slack)
         }
     
     # Discover vendors with classified diffs
@@ -211,6 +267,15 @@ class AlertingPipeline:
             priority = AlertPriority.WARNING
         else:
             priority = AlertPriority.INFO
+
+        # Determine channels (GitHub + Email for now, Slack handled separately)
+        channels = []
+        if severity == "breaking":
+            channels = [AlertChannel.GITHUB, AlertChannel.EMAIL]
+        elif severity == "deprecation":
+            channels = [AlertChannel.GITHUB]
+        else:
+            channels = [AlertChannel.EMAIL]
         
         # Build alert
         alert = Alert(
@@ -228,19 +293,19 @@ class AlertingPipeline:
             confidence=change.get("confidence", 0.0),
             baseline_version=classified_diff.get("baseline_version", ""),
             latest_version=classified_diff.get("latest_version", ""),
-            channels=["github", "email"],
+            channels=channels,
             detected_at=datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%S')
         )
         
         return alert
     
-    # Send alert via configured channels
-    def _send_alert(self, alert: Alert) -> bool:
+    # Send alert via configured traditional channels
+    def _send_alert_traditional_channels(self, alert: Alert) -> bool:
 
         success = False
         
         # Determine channels based on severity
-        channels = self._determine_channels(alert.severity)
+        channels = alert.channels
         
         logger.info(f"Sending alert via channels: {[c.value for c in channels]}")
         
@@ -270,31 +335,39 @@ class AlertingPipeline:
         
         return success
     
-    # Determine which channels to use based on severity
-    def _determine_channels(self, severity: str) -> List[AlertChannel]:
+    # Send individual Slack alert
+    def _send_slack_alert_individual(self, alert: Alert) -> bool:
 
-        if severity == "breaking":
-            # Breaking: GitHub issue + Email
-            return [AlertChannel.GITHUB, AlertChannel.EMAIL]
+        if not self.slack_alerter:
+            return False
         
-        elif severity == "deprecation":
-            # Deprecation: GitHub issue only
-            return [AlertChannel.GITHUB]
+        try:
+            success = self.slack_alerter.send_alert(alert)
+            return success
+        except Exception as e:
+            logger.error(f"Slack alert error: {e}")
+            return False
+    
+    # Send batch Slack summary
+    def _send_slack_batch(self, alerts: List[Alert]) -> bool:
+
+        if not self.slack_alerter:
+            return False
         
-        elif severity == "additive":
-            # Additive: Email only (informational)
-            return [AlertChannel.EMAIL]
-        
-        else:
-            # Minor: No alerts (logged only)
-            return []
+        try:
+            success = self.slack_alerter.send_batch_alert(alerts)
+            return success
+        except Exception as e:
+            logger.error(f"Slack batch alert error: {e}")
+            return False
 
 
 # To run alerting as part of full pipeline from UI/terminal
-def run_alerting(vendors=None, test_mode=False):
+def run_alerting(vendors: Optional[List[str]] = None, test_mode: bool = False, batch_slack: bool = True):
     pipeline = AlertingPipeline(
         vendors_input=vendors,
-        test_mode=test_mode
+        test_mode=test_mode,
+        batch_slack=batch_slack
     )
     return pipeline.run()
 
@@ -315,14 +388,35 @@ def main():
         action="store_true",
         help="Run in test mode (use test fixtures instead of production data)"
     )
+    parser.add_argument(
+        "--individual",
+        action="store_true",
+        help="Send individual Slack messages (default: batch summary)"
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug logging"
+    )
+    
     args = parser.parse_args()
+
+    # Enable debug logging if requested
+    if args.debug:
+        os.environ['LOG_LEVEL'] = 'DEBUG'
     
     # Run pipeline
-    pipeline = AlertingPipeline(vendors_input=args.vendors, test_mode=args.test)
+    pipeline = AlertingPipeline(
+        vendors_input=args.vendors,
+        test_mode=args.test,
+        batch_slack=not args.individual  # Batch by default, individual if flag set
+    )
     results = pipeline.run()
     
     # Log summary
-    logger.info(f"Alerting pipeline complete: {results['sent']}/{results['total']} successful")
+    logger.info(f"Alerting pipeline complete: {results['sent']}/{results['total']} GitHub/Email alerts successful")
+    if results['slack_sent'] > 0:
+        logger.info(f"Slack alerts: {results['slack_sent']} message(s) sent")
     
     # Exit with error code if any failed
     if results['failed'] > 0:

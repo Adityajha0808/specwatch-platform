@@ -936,13 +936,13 @@ return jsonify({"error": "Pipeline already running"}), 409
 
 ```bash
 # Kill Flask app
-pkill -f "python app.py"
+pkill -f "python run_dashboard.py"
 
 # Clear stuck state
 rm -f /tmp/pipeline.lock
 
 # Restart
-python3 app.py
+python3 run_dashboard.py
 ```
 
 ### Procedure 2: Rebuild Corrupted Symlinks

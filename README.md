@@ -90,8 +90,10 @@ SMTP_PASSWORD=xxxx-xxxx-xxxx-xxxx  # Gmail App Password
 EMAIL_FROM=sender-email@gmail.com
 EMAIL_TO=receiver-email@gmail.com
 
-# Slack Integration (disabled for now)
-SLACK_ENABLED=false
+# Slack Integration
+SLACK_ENABLED=true
+SLACK_BOT_TOKEN=xoxb-slack-bot-token
+SLACK_CHANNEL=#api-alerts
 ```
 
 **Get API Keys**:
@@ -242,7 +244,7 @@ python3 -m pipelines.alerting_pipeline --test
 ### Start the Dashboard
 
 ```bash
-python3 app.py
+python3 run_dashboard.py
 ```
 
 Open browser: **http://localhost:5050**
@@ -390,7 +392,7 @@ specwatch-platform/
 │   └── diff_schema.json        # Change detection results
 │   └── discovery_schema.json   # Source URL discovery
 ├── main.py                     # Pipeline entry point
-├── app.py                      # Dashboard entry point
+├── run_dashboard.py                      # Dashboard entry point
 ├── requirements.txt            # Dependencies
 ├── .env                        # Configuration (create this)
 └── README.md                   # This file
@@ -639,7 +641,7 @@ EMAIL_FROM=sender@gmail.com
 EMAIL_TO=receiver@gmail.com
 
 # Slack (optional)
-SLACK_ENABLED=false
+SLACK_ENABLED=true
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/xxx
 
 # Redis Configuration (optional but recommended)
@@ -728,7 +730,7 @@ Added the following screenshots:
 
 **Symptom**: Buttons click but nothing happens
 
-**Fix**: Make sure you're using `python3 app.py` (not `python`)
+**Fix**: Make sure you're using `python3 run_dashboard.py` (not `python`)
 
 **Verification**:
 ```bash
@@ -785,6 +787,135 @@ python3 -c "import specwatch; print('OK')"
 ```
 
 ---
+
+## ☁️ AWS EC2 Deployment
+
+SpecWatch can be deployed on an **AWS EC2 Linux instance** using **Gunicorn + Nginx + systemd** for production-grade hosting.
+
+### Recommended Instance
+
+- **t3.micro**
+- **Python 3.11 recommended**
+- **8–10 GB EBS storage**
+- **Elastic IP** for static public access
+
+### 1) Clone & Setup
+
+```bash
+git clone https://github.com/Adityajha0808/specwatch-platform.git
+cd specwatch-platform
+
+python3.11 -m venv specwatchenv
+source specwatchenv/bin/activate
+
+pip install -r requirements-prod.txt
+```
+
+### 2) Start Flask with Gunicorn
+
+```bash
+gunicorn --workers 1 --bind 127.0.0.1:5000 "app:create_app()"
+```
+
+### 3) Create systemd Service
+
+Create `/etc/systemd/system/specwatch.service`
+
+```ini
+[Unit]
+Description=SpecWatch Flask App
+After=network.target
+
+[Service]
+User=ec2-user
+Group=ec2-user
+WorkingDirectory=/home/ec2-user/specwatch-platform
+Environment="PATH=/home/ec2-user/specwatch-platform/specwatchenv/bin"
+ExecStart=/home/ec2-user/specwatch-platform/specwatchenv/bin/gunicorn \
+    --workers 1 \
+    --bind 127.0.0.1:5000 \
+    "app:create_app()"
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable it:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable specwatch
+sudo systemctl start specwatch
+```
+
+### 4) Configure Nginx Reverse Proxy
+
+Create `/etc/nginx/conf.d/specwatch.conf`
+
+```nginx
+server {
+    listen 80;
+    server_name _;
+
+    location / {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+Restart Nginx:
+
+```bash
+sudo systemctl restart nginx
+```
+
+### 5) Access Dashboard
+
+Open:
+
+```text
+http://YOUR-EC2-PUBLIC-IP
+```
+
+### Logs
+
+```bash
+sudo journalctl -u specwatch -f
+tail -f /var/log/specwatch/app.log
+tail -f /var/log/specwatch/pipeline.log
+```
+
+### Runtime Storage
+
+All generated files are saved under:
+
+```text
+storage/
+```
+
+This includes:
+
+- discovery snapshots
+- raw OpenAPI specs
+- normalized versions
+- diffs
+- classified outputs
+- alert history
+
+### Optional HTTPS + Domain
+
+For production use, point your domain to the EC2 **Elastic IP** and install SSL with:
+
+```bash
+sudo dnf install certbot python3-certbot-nginx
+sudo certbot --nginx -d yourdomain.com
+```
+
+This automatically enables **HTTPS with auto-renewal**.
+
 
 ## 🤝 Contributing
 

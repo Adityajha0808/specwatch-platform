@@ -35,8 +35,8 @@ class Config:
     EMAIL_FROM = os.getenv('EMAIL_FROM', os.getenv('SMTP_USERNAME'))
     EMAIL_TO = os.getenv('EMAIL_TO', os.getenv('SMTP_USERNAME'))
     
-    # Slack integration (disabled by default - optional)
-    SLACK_ENABLED = os.getenv('SLACK_ENABLED', 'false').lower() == 'true'
+    # Slack integration
+    SLACK_ENABLED = os.getenv('SLACK_ENABLED', 'true').lower() == 'true'
     SLACK_BOT_TOKEN = os.getenv('SLACK_BOT_TOKEN')
     SLACK_CHANNEL = os.getenv('SLACK_CHANNEL', '#api-alerts')
     
