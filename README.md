@@ -722,6 +722,10 @@ Added the following screenshots:
 
 ![Email Alert Example](docs/images/email_alert_example.png) 
 
+8. Slack Alert Example:
+
+![Slack Alert Example](docs/images/slack_alert_example.png) 
+
 ---
 
 ## 🐛 Troubleshooting
